@@ -1,0 +1,81 @@
+PokerStars Hand #174088855475:  Hold'em No Limit (50/100) - 2017/08/08 23:16:30 MSK [2017/08/08 16:16:30 ET]
+Table 'Euphemia II' 6-max (Play Money) Seat #3 is the button
+Seat 1: adevlupec (53368 in chips) 
+Seat 2: Dette32 (10845 in chips) 
+Seat 3: Drug08 (9686 in chips) 
+Seat 4: FluffyStutt (11326 in chips) 
+FluffyStutt: posts small blind 50
+adevlupec: posts big blind 100
+*** HOLE CARDS ***
+Dealt to FluffyStutt [2h Ks]
+FluffyStutt said, "nh"
+Dette32: calls 100
+Drug08: calls 100
+FluffyStutt: folds 
+adevlupec: checks 
+*** FLOP *** [8h 7s 8d]
+adevlupec: checks 
+Dette32: checks 
+Drug08: checks 
+*** TURN *** [8h 7s 8d] [Th]
+adevlupec: checks 
+Dette32: checks 
+Drug08: checks 
+*** RIVER *** [8h 7s 8d Th] [2c]
+adevlupec: checks 
+Dette32: checks 
+Drug08: checks 
+*** SHOW DOWN ***
+adevlupec: shows [Qs Ts] (two pair, Tens and Eights)
+Dette32: mucks hand 
+Drug08: mucks hand 
+adevlupec collected 332 from pot
+*** SUMMARY ***
+Total pot 350 | Rake 18 
+Board [8h 7s 8d Th 2c]
+Seat 1: adevlupec (big blind) showed [Qs Ts] and won (332) with two pair, Tens and Eights
+Seat 2: Dette32 mucked [5s Kc]
+Seat 3: Drug08 (button) mucked [4d 6h]
+Seat 4: FluffyStutt (small blind) folded before Flop
+
+
+
+PokerStars Hand #174088919486:  Hold'em No Limit (50/100) - 2017/08/08 23:17:57 MSK [2017/08/08 16:17:57 ET]
+Table 'Euphemia II' 6-max (Play Money) Seat #4 is the button
+Seat 1: adevlupec (53600 in chips) 
+Seat 2: Dette32 (10745 in chips) 
+Seat 3: Drug08 (9586 in chips) 
+Seat 4: FluffyStutt (11276 in chips) 
+yanksea will be allowed to play after the button
+adevlupec: posts small blind 50
+Dette32: posts big blind 100
+*** HOLE CARDS ***
+Dealt to FluffyStutt [8s Qc]
+Drug08: calls 100
+FluffyStutt: calls 100
+adevlupec: folds 
+Dette32: checks 
+*** FLOP *** [8c Qh 4c]
+Dette32: checks 
+Drug08: checks 
+FluffyStutt: bets 332
+Dette32: folds 
+Drug08: calls 332
+*** TURN *** [8c Qh 4c] [Ac]
+Drug08: checks 
+FluffyStutt: bets 963
+Drug08: calls 963
+*** RIVER *** [8c Qh 4c Ac] [Td]
+Drug08: checks 
+FluffyStutt: bets 9881 and is all-in
+Drug08: folds 
+Uncalled bet (9881) returned to FluffyStutt
+FluffyStutt collected 2793 from pot
+FluffyStutt: doesn't show hand 
+*** SUMMARY ***
+Total pot 2940 | Rake 147 
+Board [8c Qh 4c Ac Td]
+Seat 1: adevlupec (small blind) folded before Flop
+Seat 2: Dette32 (big blind) folded on the Flop
+Seat 3: Drug08 folded on the River
+Seat 4: FluffyStutt (button) collected (2793)
