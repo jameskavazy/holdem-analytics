@@ -1,106 +1,142 @@
 package pokerhud
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"reflect"
+	"strings"
+	"testing"
 )
 
-type HandDataReader interface {
-	Read()
+func TestActionTypeFromText(t *testing.T) {
+
+	cases := map[string]string{
+		"kv_def: posts small blind $0.02": "posts",
+		"KavarzE: posts big blind $0.05":  "posts",
+		"arsad725: folds":                 "folds",
+		"RE0309: calls $0.05":             "calls",
+		"pernadao1599: calls $0.05":       "calls",
+		"maximoIV: folds":                 "folds",
+		"dlourencobss: calls $0.03":       "calls",
+		"KavarzE: checks":                 "checks",
+		"dlourencobss: bets $0.10":        "bets",
+		"KavarzE: folds":                  "folds",
+		"RE0309: folds":                   "folds",
+		"pernadao1599: calls $0.10":       "calls",
+		"dlourencobss: bets $0.27":        "bets",
+		"pernadao1599: calls $0.27":       "calls",
+		"dlourencobss: checks":            "checks",
+		"pernadao1599: checks":            "checks",
+	}
+
+	for c, want := range cases {
+		buffer := bytes.Buffer{}
+		fmt.Fprintf(&buffer, "Post Scenario: %v", c)
+
+		t.Run(buffer.String(), func(t *testing.T) {
+			scanner := createHandScanner(c)
+			scanner.Scan()
+			got, _ := actionTypeFromText(scanner)
+			if got != want {
+				t.Errorf("got %v, but wanted %v", got, want)
+			}
+		})
+	}
 }
 
-type HandData struct {
-	text string
+func TestBuildActions(t *testing.T) {
+	reader := strings.NewReader(testHand)
+	scanner := bufio.NewScanner(reader)
+	var actions []Action
+	var got []Action
+	for scanner.Scan() {
+		got = append(got, BuildActions(scanner, actions)...)
+	}
+	want := []Action{
+		{
+			// Player:     "KavarzE",
+			ActionType: "posts",
+		},
+		{
+			// Player:     "getaddicted",
+			ActionType: "posts",
+		},
+		{
+			// Player:     "Mythic Max:",
+			ActionType: "folds",
+		},
+		{
+			// Player:     "Cl8rker",
+			ActionType: "folds",
+		},
+		{
+			// Player:     "MGPN",
+			ActionType: "raises",
+		},
+		{
+			// Player:     "SyraXmaX",
+			ActionType: "folds",
+		},
+		{
+			// Player:     "KavarzE",
+			ActionType: "folds",
+		},
+		{
+			// Player:     "getaddicted",
+			ActionType: "folds",
+		},
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %#v, wanted %#v", got, want)
+	}
 }
 
-// func TestParseHandData(t *testing.T) {
-// 	testHandData := HandData{text: `PokerStars Zoom Hand #254445778475:  Hold'em No Limit ($0.02/$0.05) - 2025/01/19 12:00:43 WET [2025/01/19 7:00:43 ET]
+// const testHands string = `PokerStars Zoom Hand #254489598204:  Hold'em No Limit ($0.02/$0.05) - 2025/01/21 20:51:32 WET [2025/01/21 15:51:32 ET]
 // Table 'Donati' 6-max Seat #1 is the button
-// Seat 1: tiodor1972 ($7 in chips)
-// Seat 2: Siku44 ($4.32 in chips)
-// Seat 3: BorisBorisPaul ($7.20 in chips)
-// Seat 4: KavarzE ($5 in chips)
-// Seat 5: JacDs ($6.51 in chips)
-// Seat 6: andots7 ($5.07 in chips)
-// Siku44: posts small blind $0.02
-// BorisBorisPaul: posts big blind $0.05
+// Seat 1: JDfq28 ($5.11 in chips)
+// Seat 2: kv_def ($11.57 in chips)
+// Seat 3: KavarzE ($5 in chips)
+// Seat 4: MGPN ($4.63 in chips)
+// Seat 5: ikin23 ($7.63 in chips)
+// Seat 6: honda589 ($5.38 in chips)
+// kv_def: posts small blind $0.02
+// KavarzE: posts big blind $0.05
 // *** HOLE CARDS ***
-// Dealt to KavarzE [5d 4d]
-// KavarzE: raises $0.08 to $0.13
-// JacDs: folds
-// andots7: folds
-// tiodor1972: folds
-// Siku44: folds
-// BorisBorisPaul: calls $0.08
-// *** FLOP *** [Jc 6d 6h]
-// BorisBorisPaul: checks
-// KavarzE: bets $0.09
-// BorisBorisPaul: raises $0.11 to $0.20
-// KavarzE: calls $0.11
-// *** TURN *** [Jc 6d 6h] [8d]
-// BorisBorisPaul: bets $0.45
-// KavarzE: calls $0.45
-// *** RIVER *** [Jc 6d 6h 8d] [2c]
-// BorisBorisPaul: bets $0.95
-// KavarzE: folds
-// Uncalled bet ($0.95) returned to BorisBorisPaul
-// BorisBorisPaul collected $1.51 from pot
-// BorisBorisPaul: doesn't show hand
-// *** SUMMARY ***
-// Total pot $1.58 | Rake $0.07
-// Board [Jc 6d 6h 8d 2c]
-// Seat 1: tiodor1972 (button) folded before Flop (didn't bet)
-// Seat 2: Siku44 (small blind) folded before Flop
-// Seat 3: BorisBorisPaul (big blind) collected ($1.51)
-// Seat 4: KavarzE folded on the River
-// Seat 5: JacDs folded before Flop (didn't bet)
-// Seat 6: andots7 folded before Flop (didn't bet)
-
-// PokerStars Zoom Hand #254445789939:  Hold'em No Limit ($0.02/$0.05) - 2025/01/19 12:02:03 WET [2025/01/19 7:02:03 ET]
-// Table 'Donati' 6-max Seat #1 is the button
-// Seat 1: KavarzE ($5 in chips)
-// Seat 2: parktjdwn ($6.90 in chips)
-// Seat 3: tomato_yorumy ($5.27 in chips)
-// Seat 4: cotyara1986 ($5.66 in chips)
-// Seat 5: julesAAAA ($7.19 in chips)
-// Seat 6: Yatoro_7 ($5.26 in chips)
-// parktjdwn: posts small blind $0.02
-// tomato_yorumy: posts big blind $0.05
-// *** HOLE CARDS ***
-// Dealt to KavarzE [Jc Tc]
-// cotyara1986: folds
-// julesAAAA: folds
-// Yatoro_7: folds
-// KavarzE: raises $0.08 to $0.13
-// parktjdwn: raises $0.40 to $0.53
-// tomato_yorumy: folds
-// KavarzE: calls $0.40
-// *** FLOP *** [Js 5h Kh]
-// parktjdwn: bets $0.35
-// KavarzE: calls $0.35
-// *** TURN *** [Js 5h Kh] [9d]
-// parktjdwn: checks
+// Dealt to KavarzE [3c 7c]
+// MGPN: folds
+// ikin23: folds
+// honda589: folds
+// JDfq28: raises $0.07 to $0.12
+// kv_def: calls $0.10
+// KavarzE: calls $0.07
+// *** FLOP *** [Qc As 3d]
+// kv_def: checks
 // KavarzE: checks
-// *** RIVER *** [Js 5h Kh 9d] [2d]
-// parktjdwn: bets $1.30
-// KavarzE: calls $1.30
-// *** SHOW DOWN ***
-// parktjdwn: shows [5s 6s] (a pair of Fives)
-// KavarzE: shows [Jc Tc] (a pair of Jacks)
-// KavarzE collected $4.23 from pot
+// JDfq28: checks
+// *** TURN *** [Qc As 3d] [2h]
+// kv_def: bets $0.20
+// KavarzE: folds
+// JDfq28: folds
+// Uncalled bet ($0.20) returned to kv_def
+// kv_def collected $0.35 from pot
+// kv_def: doesn't show hand
 // *** SUMMARY ***
-// Total pot $4.41 | Rake $0.18
-// Board [Js 5h Kh 9d 2d]
-// Seat 1: KavarzE (button) showed [Jc Tc] and won ($4.23) with a pair of Jacks
-// Seat 2: parktjdwn (small blind) showed [5s 6s] and lost with a pair of Fives
-// Seat 3: tomato_yorumy (big blind) folded before Flop
-// Seat 4: cotyara1986 folded before Flop (didn't bet)
-// Seat 5: julesAAAA folded before Flop (didn't bet)
-// Seat 6: Yatoro_7 folded before Flop (didn't bet)
-// `}
+// Total pot $0.36 | Rake $0.01
+// Board [Qc As 3d 2h]
+// Seat 1: JDfq28 (button) folded on the Turn
+// Seat 2: kv_def (small blind) collected ($0.35)
+// Seat 3: KavarzE (big blind) folded on the Turn
+// Seat 4: MGPN folded before Flop (didn't bet)
+// Seat 5: ikin23 folded before Flop (didn't bet)
+// Seat 6: honda589 folded before Flop (didn't bet)
 
-// }
-
-func (h HandData) Read() (int, error) {
-	fmt.Println(h.text)
-	return 1, nil
-}
+const testHand string = `KavarzE: posts small blind $0.02
+getaddicted: posts big blind $0.05
+Mythic Max: folds
+Cl8rker: folds
+MGPN: raises $0.05 to $0.10
+SyraXmaX: folds
+KavarzE: folds
+getaddicted: folds`
