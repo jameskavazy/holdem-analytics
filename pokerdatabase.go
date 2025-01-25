@@ -56,8 +56,6 @@ func (t ActionType) String() string {
 //so Hand will actually be an interface and there'll be a pokerstarshand struct that implements hand interface... methods TBD.
 // equally each hand
 
-// Do we need Action struct? Does that belong internally to the hand
-
 // // We'd need some kind of continual running to scan the FS for new hand files and keep reading from the same particular one.
 // func GetHandsWhilePlaying() {
 //     //TODO - detect latest file in HH fs. Open file & parse changes to it?
@@ -165,7 +163,7 @@ func setHeroCards(scanner *bufio.Scanner, heroCards string) string {
 
 // Extracts player name and updates playerNames slice for the Hand. If unable to extract a playername, the original playerNames slice is returned.
 func updatePlayerNames(scanner *bufio.Scanner, playerNames []string) []string {
-	nameFound := handplayerNameFromText(scanner)
+	nameFound := handPlayerNameFromText(scanner)
 	if nameFound != "" {
 		playerNames = append(playerNames, nameFound)
 	}
@@ -183,7 +181,7 @@ func handIdFromText(h string) string {
 	return strings.Split(strings.Split(h, ":")[0], "#")[1]
 }
 
-func handplayerNameFromText(scanner *bufio.Scanner) string {
+func handPlayerNameFromText(scanner *bufio.Scanner) string {
 	var playerName string
 	// Might need to pass in the street? because otherwise, there's Summary section that matches closely the same pattern
 	//TODO Refactor this -> doesn't seem robust e.g. start + 2 seems like asking for a panic
