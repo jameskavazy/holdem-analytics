@@ -8,7 +8,7 @@ import (
 
 func TestActionTypeFromText(t *testing.T) {
 
-	cases := map[string]string{
+	cases := map[string]ActionType{
 		"kv_def: posts small blind $0.02": "posts",
 		"KavarzE: posts big blind $0.05":  "posts",
 		"arsad725: folds":                 "folds",
@@ -128,15 +128,15 @@ func TestPlayerActionFromText(t *testing.T) {
 // 	}
 // }
 
-func actionBuildHelper(player, actionType, street string, order int, amount float64) Action {
-	return Action{
-		Player:     player,
-		ActionType: actionType,
-		Street:     street,
-		Order:      order,
-		Amount:     amount,
-	}
-}
+// func actionBuildHelper(player string, actionType ActionType, street Street, order int, amount float64) Action {
+// 	return Action{
+// 		Player:     player,
+// 		ActionType: actionType,
+// 		Street:     street,
+// 		Order:      order,
+// 		Amount:     amount,
+// 	}
+// }
 
 // func TestStreetActionFromText(t *testing.T) {
 // 	cases := map[string]string{

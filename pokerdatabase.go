@@ -15,6 +15,18 @@ const (
 	turnSignifier     string = "*** TURN ***"
 	riverSignifier    string = "*** RIVER ***"
 	Dollar            string = "$"
+
+	Preflop Street = "preflop"
+	Flop    Street = "flop"
+	Turn    Street = "turn"
+	River   Street = "river"
+
+	Folds  ActionType = "folds"
+	Checks ActionType = "checks"
+	Calls  ActionType = "calls"
+	Bets   ActionType = "bets"
+	Raises ActionType = "raises"
+	Posts  ActionType = "posts"
 )
 
 type Hand struct {
@@ -27,9 +39,17 @@ type Hand struct {
 type Action struct {
 	Player     string //TODO make player explicit type?
 	Order      int
-	Street     string
-	ActionType string
+	Street     Street
+	ActionType ActionType
 	Amount     float64
+}
+
+type Street string
+
+type ActionType string
+
+func (t ActionType) String() string {
+	return string(t)
 }
 
 // Todo - At some point we're going to want to make an interface of sorts so that we handle Pokerstars hands, Party poker hands. etc.
@@ -45,7 +65,11 @@ type Action struct {
 
 // Imports user hand history for the first time. Returns a slice of hands for insertion into the database.
 func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, error) {
-	dir, _ := fs.ReadDir(fileSystem, ".")
+	dir, err := fs.ReadDir(fileSystem, ".")
+
+	if err != nil {
+		return nil, errors.New("error reading filesystem")
+	}
 
 	var allHands []Hand
 
@@ -77,7 +101,7 @@ func parseHandData(fileData []byte) []Hand {
 		var playerNames []string
 		var actions []Action
 		var heroCards string
-		var street string = "preflop"
+		var street Street = Preflop
 		var order int = 1
 
 		// TODO does it make sense to scan the whole hand first, grab the players? and then start again this time with player info?
@@ -98,12 +122,12 @@ func parseHandData(fileData []byte) []Hand {
 }
 
 // Builds action from text data, appends to the existing slice and returns back an updated slice
-func BuildActions(scanner *bufio.Scanner, street *string, actions []Action, order *int) []Action {
+func BuildActions(scanner *bufio.Scanner, street *Street, actions []Action, order *int) []Action {
 	getStreetFromText(scanner, street)
 	return parseAction(scanner, actions, street, order)
 }
 
-func parseAction(scanner *bufio.Scanner, actions []Action, street *string, order *int) []Action {
+func parseAction(scanner *bufio.Scanner, actions []Action, actionStreet *Street, order *int) []Action {
 	actionType, err := actionTypeFromText(scanner)
 	if err == nil {
 		playerName, err := actionPlayerNameFromText(scanner)
@@ -111,7 +135,7 @@ func parseAction(scanner *bufio.Scanner, actions []Action, street *string, order
 			actions = append(actions, Action{
 				ActionType: actionType,
 				Player:     playerName,
-				Street:     *street,
+				Street:     *actionStreet,
 				Order:      *order,
 				Amount:     actionAmountFromText(scanner),
 			})
@@ -121,14 +145,14 @@ func parseAction(scanner *bufio.Scanner, actions []Action, street *string, order
 	return actions
 }
 
-func getStreetFromText(scanner *bufio.Scanner, street *string) {
+func getStreetFromText(scanner *bufio.Scanner, actionStreet *Street) {
 	switch {
 	case strings.Contains(scanner.Text(), flopSignifier):
-		*street = "flop"
+		*actionStreet = Flop
 	case strings.Contains(scanner.Text(), turnSignifier):
-		*street = "turn"
+		*actionStreet = Turn
 	case strings.Contains(scanner.Text(), riverSignifier):
-		*street = "river"
+		*actionStreet = River
 	}
 }
 
@@ -190,21 +214,13 @@ func heroCardsFromText(scanner *bufio.Scanner) string {
 	return heroCards
 }
 
-func actionTypeFromText(scanner *bufio.Scanner) (string, error) {
+func actionTypeFromText(scanner *bufio.Scanner) (ActionType, error) {
 
-	actionTypes := []string{
-		"posts",
-		"bets",
-		"calls",
-		"folds",
-		"raises",
-		"checks",
-	}
+	actionTypes := []ActionType{Posts, Folds, Checks, Bets, Calls, Raises}
 
 	for _, t := range actionTypes {
-		if strings.Contains(scanner.Text(), t) {
+		if strings.Contains(scanner.Text(), t.String()) {
 			return t, nil
-
 		}
 	}
 	return "", errors.New("no action found on text line")

@@ -1,7 +1,9 @@
 package pokerhud_test
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"pokerhud"
 	"reflect"
 	"testing"
@@ -23,6 +25,16 @@ func TestHandHistoriesFromFS(t *testing.T) {
 		}
 	})
 
+	t.Run("failing filesystem", func(t *testing.T) {
+		fileSystem := failingFS{}
+
+		_, err := pokerhud.HandHistoryFromFS(fileSystem)
+
+		if err == nil {
+			t.Fatal("expected an err but didn't get one")
+		}
+	})
+
 	t.Run("hand data is correctly parsed from a text file", func(t *testing.T) {
 		fileSystem := fstest.MapFS{
 			"Wei III": {Data: []byte(cashGame2)},
@@ -35,22 +47,22 @@ func TestHandHistoriesFromFS(t *testing.T) {
 			Id:      "254446123323",
 			Players: []string{"maximoIV", "dlourencobss", "KavarzE", "arsad725", "RE0309", "pernadao1599"},
 			Actions: []pokerhud.Action{
-				actionBuildHelper("dlourencobss", "posts", "preflop", 1, 0.02),
-				actionBuildHelper("KavarzE", "posts", "preflop", 2, 0.05),
-				actionBuildHelper("arsad725", "folds", "preflop", 3, 0),
-				actionBuildHelper("RE0309", "calls", "preflop", 4, 0.05),
-				actionBuildHelper("pernadao1599", "calls", "preflop", 5, 0.05),
-				actionBuildHelper("maximoIV", "folds", "preflop", 6, 0),
-				actionBuildHelper("dlourencobss", "calls", "preflop", 7, 0.03),
-				actionBuildHelper("KavarzE", "checks", "preflop", 8, 0),
-				actionBuildHelper("dlourencobss", "bets", "flop", 9, 0.10),
-				actionBuildHelper("KavarzE", "folds", "flop", 10, 0),
-				actionBuildHelper("RE0309", "folds", "flop", 11, 0),
-				actionBuildHelper("pernadao1599", "calls", "flop", 12, 0.10),
-				actionBuildHelper("dlourencobss", "bets", "turn", 13, 0.27),
-				actionBuildHelper("pernadao1599", "calls", "turn", 14, 0.27),
-				actionBuildHelper("dlourencobss", "checks", "river", 15, 0),
-				actionBuildHelper("pernadao1599", "checks", "river", 16, 0),
+				actionBuildHelper("dlourencobss", pokerhud.Posts, pokerhud.Preflop, 1, 0.02),
+				actionBuildHelper("KavarzE", pokerhud.Posts, pokerhud.Preflop, 2, 0.05),
+				actionBuildHelper("arsad725", pokerhud.Folds, pokerhud.Preflop, 3, 0),
+				actionBuildHelper("RE0309", pokerhud.Calls, pokerhud.Preflop, 4, 0.05),
+				actionBuildHelper("pernadao1599", pokerhud.Calls, pokerhud.Preflop, 5, 0.05),
+				actionBuildHelper("maximoIV", pokerhud.Folds, pokerhud.Preflop, 6, 0),
+				actionBuildHelper("dlourencobss", pokerhud.Calls, pokerhud.Preflop, 7, 0.03),
+				actionBuildHelper("KavarzE", pokerhud.Checks, pokerhud.Preflop, 8, 0),
+				actionBuildHelper("dlourencobss", pokerhud.Bets, pokerhud.Flop, 9, 0.10),
+				actionBuildHelper("KavarzE", pokerhud.Folds, pokerhud.Flop, 10, 0),
+				actionBuildHelper("RE0309", pokerhud.Folds, pokerhud.Flop, 11, 0),
+				actionBuildHelper("pernadao1599", pokerhud.Calls, pokerhud.Flop, 12, 0.10),
+				actionBuildHelper("dlourencobss", pokerhud.Bets, pokerhud.Turn, 13, 0.27),
+				actionBuildHelper("pernadao1599", pokerhud.Calls, pokerhud.Turn, 14, 0.27),
+				actionBuildHelper("dlourencobss", pokerhud.Checks, pokerhud.River, 15, 0),
+				actionBuildHelper("pernadao1599", pokerhud.Checks, pokerhud.River, 16, 0),
 			},
 			HeroCards: "2s 5d",
 		}
@@ -68,20 +80,7 @@ func assertHand(t *testing.T, got, want pokerhud.Hand) {
 	}
 }
 
-// func actionsHelper(handData string) {
-// 	reader := strings.NewReader(handData)
-// 	scanner := bufio.NewScanner(reader)
-
-// 	var actions []pokerhud.Action
-
-// 	for scanner.Scan() {
-// 		actions = append(actions, pokerhud.Action{
-// 			ActionType: ,
-// 		})
-// 	}
-// }
-
-func actionBuildHelper(player, actionType, street string, order int, amount float64) pokerhud.Action {
+func actionBuildHelper(player string, actionType pokerhud.ActionType, street pokerhud.Street, order int, amount float64) pokerhud.Action {
 	return pokerhud.Action{
 		Player:     player,
 		ActionType: actionType,
@@ -89,6 +88,12 @@ func actionBuildHelper(player, actionType, street string, order int, amount floa
 		Order:      order,
 		Amount:     amount,
 	}
+}
+
+type failingFS struct{}
+
+func (f failingFS) Open(name string) (fs.File, error) {
+	return nil, errors.New("oh no i always fail")
 }
 
 const zoomHand1 string = `PokerStars Zoom Hand #254445778475:  Hold'em No Limit ($0.02/$0.05) - 2025/01/19 12:00:43 WET [2025/01/19 7:00:43 ET]
