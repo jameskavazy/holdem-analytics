@@ -5,10 +5,17 @@ import (
 	"errors"
 	"io/fs"
 	"slices"
+	"strconv"
 	"strings"
 )
 
-const handInfoDelimiter string = "\n\n\n"
+const (
+	handInfoDelimiter string = "\n\n\n"
+	flopSignifier     string = "*** FLOP ***"
+	turnSignifier     string = "*** TURN ***"
+	riverSignifier    string = "*** RIVER ***"
+	Dollar            string = "$"
+)
 
 type Hand struct {
 	Id        string
@@ -18,11 +25,11 @@ type Hand struct {
 }
 
 type Action struct {
-	// Player string //TODO make player explicit type?
-	// Order  int
-	// Street string
+	Player     string //TODO make player explicit type?
+	Order      int
+	Street     string
 	ActionType string
-	// Amount float64
+	Amount     float64
 }
 
 // Todo - At some point we're going to want to make an interface of sorts so that we handle Pokerstars hands, Party poker hands. etc.
@@ -70,12 +77,14 @@ func parseHandData(fileData []byte) []Hand {
 		var playerNames []string
 		var actions []Action
 		var heroCards string
+		var street string = "preflop"
+		var order int = 1
 
 		// TODO does it make sense to scan the whole hand first, grab the players? and then start again this time with player info?
 		for scanner.Scan() {
 			playerNames = updatePlayerNames(scanner, playerNames)
 			heroCards = setHeroCards(scanner, heroCards)
-			actions = BuildActions(scanner, actions)
+			actions = BuildActions(scanner, &street, actions, &order)
 		}
 
 		hands = append(hands, Hand{
@@ -85,18 +94,42 @@ func parseHandData(fileData []byte) []Hand {
 			Actions:   actions,
 		})
 	}
-
 	return hands
 }
 
-func BuildActions(scanner *bufio.Scanner, actions []Action) []Action {
+// Builds action from text data, appends to the existing slice and returns back an updated slice
+func BuildActions(scanner *bufio.Scanner, street *string, actions []Action, order *int) []Action {
+	getStreetFromText(scanner, street)
+	return parseAction(scanner, actions, street, order)
+}
+
+func parseAction(scanner *bufio.Scanner, actions []Action, street *string, order *int) []Action {
 	actionType, err := actionTypeFromText(scanner)
 	if err == nil {
-		actions = append(actions, Action{
-			ActionType: actionType,
-		})
+		playerName, err := actionPlayerNameFromText(scanner)
+		if err == nil {
+			actions = append(actions, Action{
+				ActionType: actionType,
+				Player:     playerName,
+				Street:     *street,
+				Order:      *order,
+				Amount:     actionAmountFromText(scanner),
+			})
+		}
+		*order++
 	}
 	return actions
+}
+
+func getStreetFromText(scanner *bufio.Scanner, street *string) {
+	switch {
+	case strings.Contains(scanner.Text(), flopSignifier):
+		*street = "flop"
+	case strings.Contains(scanner.Text(), turnSignifier):
+		*street = "turn"
+	case strings.Contains(scanner.Text(), riverSignifier):
+		*street = "river"
+	}
 }
 
 func setHeroCards(scanner *bufio.Scanner, heroCards string) string {
@@ -108,7 +141,7 @@ func setHeroCards(scanner *bufio.Scanner, heroCards string) string {
 
 // Extracts player name and updates playerNames slice for the Hand. If unable to extract a playername, the original playerNames slice is returned.
 func updatePlayerNames(scanner *bufio.Scanner, playerNames []string) []string {
-	nameFound := playerNameFromText(scanner)
+	nameFound := handplayerNameFromText(scanner)
 	if nameFound != "" {
 		playerNames = append(playerNames, nameFound)
 	}
@@ -126,9 +159,8 @@ func handIdFromText(h string) string {
 	return strings.Split(strings.Split(h, ":")[0], "#")[1]
 }
 
-func playerNameFromText(scanner *bufio.Scanner) string {
+func handplayerNameFromText(scanner *bufio.Scanner) string {
 	var playerName string
-
 	// Might need to pass in the street? because otherwise, there's Summary section that matches closely the same pattern
 	//TODO Refactor this -> doesn't seem robust e.g. start + 2 seems like asking for a panic
 	if strings.Contains(scanner.Text(), "Seat ") && strings.Contains(scanner.Text(), "chips") {
@@ -177,57 +209,20 @@ func actionTypeFromText(scanner *bufio.Scanner) (string, error) {
 	}
 	return "", errors.New("no action found on text line")
 
-	// var order int = 1
-	// var street string
+}
 
-	// switch {
-	// case strings.Contains(scanner.Text(), "*** FLOP ***"):
-	// 	street = "flop"
-	// case strings.Contains(scanner.Text(), "*** TURN ***"):
-	// 	street = "turn"
-	// case strings.Contains(scanner.Text(), "*** RIVER ***"):
-	// 	street = "river"
-	// default:
-	// 	street = "preflop"
-	// }
+func actionPlayerNameFromText(scanner *bufio.Scanner) (string, error) {
+	if strings.Contains(scanner.Text(), ":") {
+		return strings.Split(scanner.Text(), ":")[0], nil
+	}
 
-	// scannedFieldData := strings.Fields(scanner.Text())
+	return "", errors.New("couldn't find player name to parse")
+}
 
-	// fmt.Println("actioinsFromText data before internal loop", scannedFieldData)
-	// var playerName string
-	// var actionType string
-	// var amount float64
-
-	// for _, d := range scannedFieldData {
-
-	// 	if strings.Contains(d, playerNameFromText(scanner)) {
-	// 		playerName, _ = strings.CutSuffix(d, ":")
-	// 		// fmt.Println("actionsFromText playerName found ", playerName)
-	// 	}
-
-	// 	// switch {
-	// 	// case strings.Contains(d, "posts"):
-	// 	// 	actionType = "post"
-	// 	// case strings.Contains(d, "bets"):
-	// 	// 	actionType = "bet"
-	// 	// case strings.Contains(d, "calls"):
-	// 	// 	actionType = "call"
-	// 	// case strings.Contains(d, "folds"):
-	// 	// 	actionType = "fold"
-	// 	// 	amount = 0
-	// 	// case strings.Contains(d, "raises"):
-	// 	// 	actionType = "raise"
-	// 	// case strings.Contains(d, "checks"):
-	// 	// 	actionType = "checks"
-	// 	// 	amount = 0
-	// 	// }
-
-	// 	// if strings.Contains(d, "$") { // TODO const DOLLAR , if currency = dollar
-	// 	// 	amount, _ = strconv.ParseFloat((strings.Split(d, "$")[1]), 64)
-	// 	// }
-
-	// }
-
-	// order++
-
+func actionAmountFromText(scanner *bufio.Scanner) float64 {
+	if strings.Contains(scanner.Text(), Dollar) {
+		amount, _ := strconv.ParseFloat((strings.Split(scanner.Text(), Dollar)[1]), 64)
+		return amount
+	}
+	return 0
 }

@@ -1,11 +1,8 @@
 package pokerhud
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
-	"reflect"
-	"strings"
 	"testing"
 )
 
@@ -45,53 +42,108 @@ func TestActionTypeFromText(t *testing.T) {
 	}
 }
 
-func TestBuildActions(t *testing.T) {
-	reader := strings.NewReader(testHand)
-	scanner := bufio.NewScanner(reader)
-	var actions []Action
-	var got []Action
-	for scanner.Scan() {
-		got = append(got, BuildActions(scanner, actions)...)
-	}
-	want := []Action{
-		{
-			// Player:     "KavarzE",
-			ActionType: "posts",
-		},
-		{
-			// Player:     "getaddicted",
-			ActionType: "posts",
-		},
-		{
-			// Player:     "Mythic Max:",
-			ActionType: "folds",
-		},
-		{
-			// Player:     "Cl8rker",
-			ActionType: "folds",
-		},
-		{
-			// Player:     "MGPN",
-			ActionType: "raises",
-		},
-		{
-			// Player:     "SyraXmaX",
-			ActionType: "folds",
-		},
-		{
-			// Player:     "KavarzE",
-			ActionType: "folds",
-		},
-		{
-			// Player:     "getaddicted",
-			ActionType: "folds",
-		},
+func TestPlayerActionFromText(t *testing.T) {
+	cases := map[string]string{
+		"kv_def: posts small blind $0.02": "kv_def",
+		"KavarzE: posts big blind $0.05":  "KavarzE",
+		"arsad725: folds":                 "arsad725",
+		"RE0309: calls $0.05":             "RE0309",
+		"pernadao1599: calls $0.05":       "pernadao1599",
+		"maximoIV: folds":                 "maximoIV",
+		"dlourencobss: calls $0.03":       "dlourencobss",
+		"KavarzE: checks":                 "KavarzE",
+		"dlourencobss: bets $0.10":        "dlourencobss",
+		"KavarzE: folds":                  "KavarzE",
+		"RE0309: folds":                   "RE0309",
+		"pernadao1599: calls $0.10":       "pernadao1599",
+		"dlourencobss: bets $0.27":        "dlourencobss",
+		"pernadao1599: calls $0.27":       "pernadao1599",
+		"dlourencobss: checks":            "dlourencobss",
+		"pernadao1599: checks":            "pernadao1599",
 	}
 
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("got %#v, wanted %#v", got, want)
+	for c, want := range cases {
+		buffer := bytes.Buffer{}
+		fmt.Fprintf(&buffer, "Post Scenario: %v", c)
+
+		t.Run(buffer.String(), func(t *testing.T) {
+			scanner := createHandScanner(c)
+			scanner.Scan()
+			got, _ := actionPlayerNameFromText(scanner)
+			if got != want {
+				t.Errorf("got %v, but wanted %v", got, want)
+			}
+		})
 	}
 }
+
+// func TestBuildActions(t *testing.T) {
+// 	reader := strings.NewReader(testHand)
+// 	scanner := bufio.NewScanner(reader)
+// 	var actions []Action
+// 	var got []Action
+// 	var street string = "preflop"
+// 	var order int = 1
+// 	for scanner.Scan() {
+// 		got = append(got, BuildActions(scanner, &street, actions, &order)...)
+// 	}
+// 	want := []Action{
+// 		actionBuildHelper("KavarzE", "posts", "preflop", )
+// 		{
+// 			Player:     "KavarzE",
+// 			ActionType: "posts",
+// 		},
+// 		{
+// 			Player:     "getaddicted",
+// 			ActionType: "posts",
+// 		},
+// 		{
+// 			Player:     "Mythic Max",
+// 			ActionType: "folds",
+// 		},
+// 		{
+// 			Player:     "Cl8rker",
+// 			ActionType: "folds",
+// 		},
+// 		{
+// 			Player:     "MGPN",
+// 			ActionType: "raises",
+// 		},
+// 		{
+// 			Player:     "SyraXmaX",
+// 			ActionType: "folds",
+// 		},
+// 		{
+// 			Player:     "KavarzE",
+// 			ActionType: "folds",
+// 		},
+// 		{
+// 			Player:     "getaddicted",
+// 			ActionType: "folds",
+// 		},
+// 	}
+
+// 	if !reflect.DeepEqual(got, want) {
+// 		t.Errorf("got %#v\n, wanted %#v", got, want)
+// 	}
+// }
+
+func actionBuildHelper(player, actionType, street string, order int, amount float64) Action {
+	return Action{
+		Player:     player,
+		ActionType: actionType,
+		Street:     street,
+		Order:      order,
+		Amount:     amount,
+	}
+}
+
+// func TestStreetActionFromText(t *testing.T) {
+// 	cases := map[string]string{
+
+// 	}
+
+// }
 
 // const testHands string = `PokerStars Zoom Hand #254489598204:  Hold'em No Limit ($0.02/$0.05) - 2025/01/21 20:51:32 WET [2025/01/21 15:51:32 ET]
 // Table 'Donati' 6-max Seat #1 is the button
