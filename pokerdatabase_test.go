@@ -3,7 +3,9 @@ package pokerhud
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
+	"io/fs"
 	"reflect"
 	"strings"
 	"testing"
@@ -11,7 +13,6 @@ import (
 )
 
 func TestActionTypeFromText(t *testing.T) {
-
 	cases := map[string]ActionType{
 		"kv_def: posts small blind $0.02": "posts",
 		"KavarzE: posts big blind $0.05":  "posts",
@@ -82,58 +83,100 @@ func TestPlayerNameActionFromText(t *testing.T) {
 }
 
 func TestActionAmountFromText(t *testing.T) {
-	cases := map[string]float64{
-		"kv_def: posts small blind $0.02": 0.02,
-		"KavarzE: posts big blind $0.05":  0.05,
-		"arsad725: folds":                 0,
-		"RE0309: calls $0.05":             0.05,
-		"pernadao1599: calls $0.05":       0.05,
-		"maximoIV: folds":                 0,
-		"dlourencobss: calls $0.03":       0.03,
-		"KavarzE: checks":                 0,
-		"dlourencobss: bets $0.10":        0.1,
-		"KavarzE: folds":                  0,
-		"RE0309: folds":                   0,
-		"pernadao1599: calls $0.10":       0.1,
-		"dlourencobss: bets $0.27":        0.27,
-		"pernadao1599: calls $0.27":       0.27,
-		"dlourencobss: checks":            0,
-		"pernadao1599: checks":            0,
-	}
+	t.Run("happy path", func(t *testing.T) {
+		cases := map[string]float64{
+			"kv_def: posts small blind $0.02": 0.02,
+			"KavarzE: posts big blind $0.05":  0.05,
+			"arsad725: folds":                 0,
+			"RE0309: calls $0.05":             0.05,
+			"pernadao1599: calls $0.05":       0.05,
+			"maximoIV: folds":                 0,
+			"dlourencobss: calls $0.03":       0.03,
+			"KavarzE: checks":                 0,
+			"dlourencobss: bets $0.10":        0.1,
+			"KavarzE: folds":                  0,
+			"RE0309: folds":                   0,
+			"pernadao1599: calls $0.10":       0.1,
+			"dlourencobss: bets $0.27":        0.27,
+			"pernadao1599: calls $0.27":       0.27,
+			"dlourencobss: checks":            0,
+			"pernadao1599: checks":            0,
+			"KavarzE: raises $0.08 to $0.13":  0.08,
+		}
 
-	for c, want := range cases {
-		buffer := bytes.Buffer{}
-		fmt.Fprintf(&buffer, "Post Scenario: %v", c)
+		for c, want := range cases {
+			buffer := bytes.Buffer{}
+			fmt.Fprintf(&buffer, "Scenario: %v", c)
 
-		t.Run(buffer.String(), func(t *testing.T) {
-			scanner := testingScanner(c)
-			got := actionAmountFromText(scanner)
-			if got != want {
-				t.Errorf("got %v, but wanted %v", got, want)
-			}
-		})
-	}
+			t.Run(buffer.String(), func(t *testing.T) {
+				scanner := testingScanner(c)
+				got, _ := actionAmountFromText(scanner)
+
+				if got != want {
+					t.Errorf("got %v, but wanted %v", got, want)
+				}
+			})
+		}
+	})
+
+	t.Run("error pathway", func(t *testing.T) {
+		cases := []string{
+			"kv_def: bets small blind 0.02",
+			"KavarzE: posts big blind 0.05",
+			"KavarzE:  big blind 0.05",
+		}
+
+		for _, c := range cases {
+			t.Run(c, func(t *testing.T) {
+				_, err := actionAmountFromText(testingScanner(c))
+
+				if err != ErrNoCurrency {
+					t.Fatalf("expected %v error but didn't get one", ErrNoCurrency)
+				}
+			})
+		}
+
+	})
 }
 
 func TestHandsFromSessionFile(t *testing.T) {
-	fileSystem := fstest.MapFS{
-		"zoom.txt": {Data: []byte(`PokerStars Hand #123: blah blah
+	t.Run("happy path", func(t *testing.T) {
+		fileSystem := fstest.MapFS{
+			"zoom.txt": {Data: []byte(`PokerStars Hand #123: blah blah
 Seat 1: test ($6000 in chips)
 Seat 2: test2 ($3000 in chips)
 Dealt to me [Ad Ac]
 KavarzE: bets $2.33`)},
-	}
+		}
 
-	got := handsFromSessionFile(fileSystem, "zoom.txt")
-	want := []Hand{
-		{
-			"123", []string{"test", "test2"}, "Ad Ac", []Action{{"KavarzE", 1, Preflop, Bets, 2.33}},
-		},
-	}
+		got, err := handsFromSessionFile(fileSystem, "zoom.txt")
 
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("got %#v wanted %#v", got, want)
-	}
+		want := []Hand{
+			{
+				"123", []Player{{Username: "test"}, {Username: "test2"}}, "Ad Ac", []Action{
+					{Player{Username: "KavarzE"}, 1, Preflop, Bets, 2.33},
+				},
+			},
+		}
+
+		if err != nil {
+			t.Fatal("got an error but didn't expect one: ", err)
+		}
+
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("got %#v wanted %#v", got, want)
+		}
+	})
+
+	t.Run("error pathway", func(t *testing.T) {
+		fileSystem := failingFS{}
+
+		_, err := handsFromSessionFile(fileSystem, "zoom.txt")
+
+		if err == nil {
+			t.Fatal("expected an error but didn't get one!")
+		}
+	})
 }
 
 func TestParseHandData(t *testing.T) {
@@ -146,14 +189,13 @@ KavarzE: bets $2.33`)
 	got := parseHandData(handData)
 	want := []Hand{
 		{
-			"123", []string{"test", "test2"}, "Ad Ac", []Action{{"KavarzE", 1, Preflop, Bets, 2.33}},
+			"123", []Player{{Username: "test"}, {Username: "test2"}}, "Ad Ac", []Action{{Player{Username: "KavarzE"}, 1, Preflop, Bets, 2.33}},
 		},
 	}
 
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %#v, wanted %#v", got, want)
 	}
-
 }
 
 func TestHandPlayerNames(t *testing.T) {
@@ -189,10 +231,42 @@ func TestHandIdFromText(t *testing.T) {
 	}
 }
 
+func TestParseAction(t *testing.T) {
+	dummyActions := []Action{
+		{Player{"Kavarz"}, 2, Flop, Bets, 3},
+		{Player{"Burty"}, 3, Flop, Calls, 3},
+	}
+	var dummyStreet Street = Flop
+	order := 4
+
+	handData := "kv_def: calls $3"
+	scanner := testingScanner(handData)
+
+	got, err := parseAction(scanner, dummyActions, &dummyStreet, &order)
+	if err != nil {
+		t.Error(err)
+	}
+
+	want := []Action{
+		{Player{"Kavarz"}, 2, Flop, Bets, 3},
+		{Player{"Burty"}, 3, Flop, Calls, 3},
+		{Player{"kv_def"}, 4, Flop, Calls, 3},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("wanted %#v but got %#v", want, got)
+	}
+}
+
 func testingScanner(handData string) *bufio.Scanner {
 	scanner := bufio.NewScanner(strings.NewReader(handData))
 	scanner.Scan()
 	return scanner
+}
+
+type failingFS struct{}
+
+func (f failingFS) Open(name string) (fs.File, error) {
+	return nil, errors.New("oh no i always fail")
 }
 
 // func actionBuildHelper(player string, actionType ActionType, street Street, order int, amount float64) Action {

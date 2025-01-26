@@ -1,9 +1,23 @@
 package pokerhud
 
+// TODO - At some point we're going to want to make an interface of sorts so that we handle Pokerstars hands, Party poker hands. etc.
+// so Hand will actually be an interface and there'll be a pokerstarshand struct that implements hand interface... methods TBD.
+// equally each hand
+
+// // We'd need some kind of continual running to scan the FS for new hand files and keep reading from the same particular one.
+// func GetHandsWhilePlaying() {
+//     //TODO - detect latest file in HH fs. Open file & parse changes to it?
+// }
+
+// TODO - Add waitgroups, goroutines and chans for concurrent file parsing...
+//
+
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"io/fs"
+	"log"
 	"slices"
 	"strconv"
 	"strings"
@@ -29,63 +43,73 @@ const (
 	Posts  ActionType = "posts"
 )
 
+var (
+	ErrNoAction   = errors.New("no action found on text line")
+	ErrNoCurrency = errors.New("error parsing Action.Amount, line expected a monetary amount not contain '$'")
+)
+
+// Hand represents a hand of poker
 type Hand struct {
 	Id        string
-	Players   []string
+	Players   []Player
 	HeroCards string
 	Actions   []Action
 }
 
+// Action is a representation of individual actions made by players within a specific hand
 type Action struct {
-	Player     string //TODO make player explicit type?
+	Player     Player // TODO make player explicit type?
 	Order      int
 	Street     Street
 	ActionType ActionType
 	Amount     float64
 }
 
+// Street is a string representation of the poker street an action was made on
 type Street string
 
+// ActionType is a the type of action made by a player. E.g. folds
 type ActionType string
+
+// Player - a player in the hand
+type Player struct {
+	Username string
+}
 
 func (t ActionType) String() string {
 	return string(t)
 }
 
-// Todo - At some point we're going to want to make an interface of sorts so that we handle Pokerstars hands, Party poker hands. etc.
-//so Hand will actually be an interface and there'll be a pokerstarshand struct that implements hand interface... methods TBD.
-// equally each hand
-
-// // We'd need some kind of continual running to scan the FS for new hand files and keep reading from the same particular one.
-// func GetHandsWhilePlaying() {
-//     //TODO - detect latest file in HH fs. Open file & parse changes to it?
-// }
-
 // Imports user hand history for the first time. Returns a slice of hands for insertion into the database.
 func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, error) {
 	dir, err := fs.ReadDir(fileSystem, ".")
-
 	if err != nil {
-		return nil, errors.New("error reading filesystem")
+		return nil, errors.New("error reading file system")
 	}
 
 	var allHands []Hand
 
 	for _, f := range dir {
-		sessionHands := handsFromSessionFile(fileSystem, f.Name())
+		sessionHands, err := handsFromSessionFile(fileSystem, f.Name())
+		if err != nil {
+			return nil, fmt.Errorf("error reading file: %v", f.Name())
+		}
+
 		allHands = slices.Concat(allHands, sessionHands)
 	}
 
 	return allHands, nil
 }
 
-func handsFromSessionFile(filesystem fs.FS, filename string) []Hand {
-	handData, _ := fs.ReadFile(filesystem, filename)
-	return parseHandData(handData)
+func handsFromSessionFile(filesystem fs.FS, filename string) ([]Hand, error) {
+	handData, err := fs.ReadFile(filesystem, filename)
+	if err != nil {
+		return nil, err
+	}
+	return parseHandData(handData), nil
 }
 
 func parseHandData(fileData []byte) []Hand {
-	// TODO a custom type of HandRawData string might be beneficial here?
 	sessionData := string(fileData)
 	handsText := strings.Split(sessionData, handInfoDelimiter)
 
@@ -96,17 +120,20 @@ func parseHandData(fileData []byte) []Hand {
 		handId := handIdFromText(h)
 		scanner := createHandScanner(h)
 
-		var playerNames []string
+		var playerNames []Player
 		var actions []Action
 		var heroCards string
 		var street Street = Preflop
 		var order int = 1
 
-		// TODO does it make sense to scan the whole hand first, grab the players? and then start again this time with player info?
 		for scanner.Scan() {
 			playerNames = updatePlayerNames(scanner, playerNames)
 			heroCards = setHeroCards(scanner, heroCards)
-			actions = BuildActions(scanner, &street, actions, &order)
+			actionResult, actionErr := ParseAndAppendActions(scanner, &street, actions, &order)
+			if actionErr != nil {
+				log.Println(actionErr)
+			}
+			actions = actionResult
 		}
 
 		hands = append(hands, Hand{
@@ -120,27 +147,47 @@ func parseHandData(fileData []byte) []Hand {
 }
 
 // Builds action from text data, appends to the existing slice and returns back an updated slice
-func BuildActions(scanner *bufio.Scanner, street *Street, actions []Action, order *int) []Action {
+func ParseAndAppendActions(scanner *bufio.Scanner, street *Street, actions []Action, order *int) ([]Action, error) {
 	getStreetFromText(scanner, street)
-	return parseAction(scanner, actions, street, order)
+	updatedActions, err := parseAction(scanner, actions, street, order)
+	if err != nil {
+		if err != ErrNoAction || err != ErrNoCurrency {
+			return updatedActions, err
+		}
+		return updatedActions, nil
+	}
+	return updatedActions, nil
 }
 
-func parseAction(scanner *bufio.Scanner, actions []Action, actionStreet *Street, order *int) []Action {
+func parseAction(scanner *bufio.Scanner, actions []Action, actionStreet *Street, order *int) ([]Action, error) {
 	actionType, err := actionTypeFromText(scanner)
-	if err == nil {
-		playerName, err := actionPlayerNameFromText(scanner)
-		if err == nil {
-			actions = append(actions, Action{
-				ActionType: actionType,
-				Player:     playerName,
-				Street:     *actionStreet,
-				Order:      *order,
-				Amount:     actionAmountFromText(scanner),
-			})
-		}
-		*order++
+	if err == ErrNoAction {
+		return actions, nil
 	}
-	return actions
+
+	if err != nil {
+		return actions, err
+	}
+
+	playerName, err := actionPlayerNameFromText(scanner)
+	if err == nil {
+		amount, amountErr := actionAmountFromText(scanner)
+		if amountErr != nil {
+			log.Println(amountErr)
+		}
+		actions = append(actions, Action{
+			ActionType: actionType,
+			Player: Player{
+				Username: playerName,
+			},
+			Street: *actionStreet,
+			Order:  *order,
+			Amount: amount,
+		})
+	}
+	*order++
+
+	return actions, nil
 }
 
 func getStreetFromText(scanner *bufio.Scanner, actionStreet *Street) {
@@ -162,10 +209,12 @@ func setHeroCards(scanner *bufio.Scanner, heroCards string) string {
 }
 
 // Extracts player name and updates playerNames slice for the Hand. If unable to extract a playername, the original playerNames slice is returned.
-func updatePlayerNames(scanner *bufio.Scanner, playerNames []string) []string {
+func updatePlayerNames(scanner *bufio.Scanner, playerNames []Player) []Player {
 	nameFound := handPlayerNameFromText(scanner)
 	if nameFound != "" {
-		playerNames = append(playerNames, nameFound)
+		playerNames = append(playerNames, Player{
+			Username: nameFound,
+		})
 	}
 	return playerNames
 }
@@ -184,20 +233,19 @@ func handIdFromText(h string) string {
 func handPlayerNameFromText(scanner *bufio.Scanner) string {
 	var playerName string
 	// Might need to pass in the street? because otherwise, there's Summary section that matches closely the same pattern
-	//TODO Refactor this -> doesn't seem robust e.g. start + 2 seems like asking for a panic
+	// TODO Refactor this -> doesn't seem robust e.g. start + 2 seems like asking for a panic
 	if strings.Contains(scanner.Text(), "Seat ") && strings.Contains(scanner.Text(), "chips") {
 		start := strings.Index(scanner.Text(), ": ")
 		end := strings.Index(scanner.Text(), " (")
 
 		if start != -1 || end != -1 {
-			playerName = scanner.Text()[start+2 : end]
+			playerName = (scanner.Text()[start+2 : end])
 		}
 	}
 	return playerName
 }
 
 func heroCardsFromText(scanner *bufio.Scanner) string {
-
 	var heroCards string
 
 	if strings.Contains(scanner.Text(), "Dealt to") {
@@ -213,7 +261,6 @@ func heroCardsFromText(scanner *bufio.Scanner) string {
 }
 
 func actionTypeFromText(scanner *bufio.Scanner) (ActionType, error) {
-
 	actionTypes := []ActionType{Posts, Folds, Checks, Bets, Calls, Raises}
 
 	for _, t := range actionTypes {
@@ -221,8 +268,7 @@ func actionTypeFromText(scanner *bufio.Scanner) (ActionType, error) {
 			return t, nil
 		}
 	}
-	return "", errors.New("no action found on text line")
-
+	return "", ErrNoAction
 }
 
 func actionPlayerNameFromText(scanner *bufio.Scanner) (string, error) {
@@ -233,10 +279,31 @@ func actionPlayerNameFromText(scanner *bufio.Scanner) (string, error) {
 	return "", errors.New("couldn't find player name to parse")
 }
 
-func actionAmountFromText(scanner *bufio.Scanner) float64 {
-	if strings.Contains(scanner.Text(), Dollar) {
-		amount, _ := strconv.ParseFloat((strings.Split(scanner.Text(), Dollar)[1]), 64)
-		return amount
+func actionAmountFromText(scanner *bufio.Scanner) (float64, error) {
+	// Strings.SplitN????
+	line := scanner.Text()
+
+	if strings.Contains(line, Dollar) && !strings.Contains(line, " to ") {
+		amount, err := strconv.ParseFloat((strings.Split(line, Dollar)[1]), 64)
+		if err != nil {
+			return amount, fmt.Errorf("received %v parsing line %v", err, line)
+		}
+		return amount, nil
 	}
-	return 0
+
+	if strings.Contains(line, Dollar) && strings.Contains(line, " to ") {
+		raiseAmt, _ := strings.CutSuffix(strings.Split(line, Dollar)[1], " to ")
+		amount, err := strconv.ParseFloat(raiseAmt, 64)
+		if err != nil {
+			return amount, fmt.Errorf("received %v parsing line %v", err, line)
+		}
+		return amount, nil
+	}
+
+	if strings.Contains(line, "checks") || strings.Contains(line, "folds") {
+		return 0, nil
+	}
+
+	ErrNoCurrency = fmt.Errorf("error on line %v parsing Action.Amount, line expected a monetary amount not contain '$'", line)
+	return 0, ErrNoCurrency
 }

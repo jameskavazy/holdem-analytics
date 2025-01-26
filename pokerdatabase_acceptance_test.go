@@ -45,7 +45,7 @@ func TestHandHistoriesFromFS(t *testing.T) {
 		got := handHistory[0]
 		want := pokerhud.Hand{
 			Id:      "254446123323",
-			Players: []string{"maximoIV", "dlourencobss", "KavarzE", "arsad725", "RE0309", "pernadao1599"},
+			Players: []pokerhud.Player{{"maximoIV"}, {"dlourencobss"}, {"KavarzE"}, {"arsad725"}, {"RE0309"}, {"pernadao1599"}},
 			Actions: []pokerhud.Action{
 				actionBuildHelper("dlourencobss", pokerhud.Posts, pokerhud.Preflop, 1, 0.02),
 				actionBuildHelper("KavarzE", pokerhud.Posts, pokerhud.Preflop, 2, 0.05),
@@ -68,9 +68,7 @@ func TestHandHistoriesFromFS(t *testing.T) {
 		}
 
 		assertHand(t, got, want)
-
 	})
-
 }
 
 func assertHand(t *testing.T, got, want pokerhud.Hand) {
@@ -80,9 +78,11 @@ func assertHand(t *testing.T, got, want pokerhud.Hand) {
 	}
 }
 
-func actionBuildHelper(player string, actionType pokerhud.ActionType, street pokerhud.Street, order int, amount float64) pokerhud.Action {
+func actionBuildHelper(playerName string, actionType pokerhud.ActionType, street pokerhud.Street, order int, amount float64) pokerhud.Action {
 	return pokerhud.Action{
-		Player:     player,
+		Player: pokerhud.Player{
+			Username: playerName,
+		},
 		ActionType: actionType,
 		Street:     street,
 		Order:      order,
@@ -92,7 +92,7 @@ func actionBuildHelper(player string, actionType pokerhud.ActionType, street pok
 
 type failingFS struct{}
 
-func (f failingFS) Open(name string) (fs.File, error) {
+func (f failingFS) Open(string) (fs.File, error) {
 	return nil, errors.New("oh no i always fail")
 }
 
