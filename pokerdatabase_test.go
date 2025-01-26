@@ -82,6 +82,18 @@ func TestPlayerNameActionFromText(t *testing.T) {
 	}
 }
 
+// func TestHandsFromSessionFile(t *testing.T) {
+// 	fileSystem := fstest.MapFS{
+// 		"failed": {Data: nil},
+// 	}
+
+// 	got, _ := handsFromSessionFile(fileSystem, "failed")
+// 	if got != nil {
+// 		t.Error("oh god")
+// 	}
+
+// }
+
 func TestActionAmountFromText(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		cases := map[string]float64{
@@ -175,28 +187,46 @@ KavarzE: bets $2.33`)},
 		_, err := handsFromSessionFile(fileSystem, "zoom.txt")
 
 		if err == nil {
+			fmt.Print(err)
 			t.Fatal("expected an error but didn't get one!")
 		}
 	})
 }
 
 func TestParseHandData(t *testing.T) {
-	handData := []byte(`PokerStars Hand #123: blah blah
+
+	t.Run("happy path", func(t *testing.T) {
+		handData := []byte(`PokerStars Hand #123: blah blah
 Seat 1: test ($6000 in chips)
 Seat 2: test2 ($3000 in chips)
 Dealt to me [Ad Ac]
 KavarzE: bets $2.33`)
 
-	got := parseHandData(handData)
-	want := []Hand{
-		{
-			"123", []Player{{Username: "test"}, {Username: "test2"}}, "Ad Ac", []Action{{Player{Username: "KavarzE"}, 1, Preflop, Bets, 2.33}},
-		},
-	}
+		got, _ := parseHandData(handData)
+		want := []Hand{
+			{
+				"123", []Player{{Username: "test"}, {Username: "test2"}}, "Ad Ac", []Action{{Player{Username: "KavarzE"}, 1, Preflop, Bets, 2.33}},
+			},
+		}
 
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("got %#v, wanted %#v", got, want)
-	}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("got %#v, wanted %#v", got, want)
+		}
+	})
+
+	t.Run("Random non-hand data", func(t *testing.T) {
+		handData := []byte(`Random non-hand data, whoops!`)
+
+		_, err := parseHandData(handData)
+
+		if err == nil {
+			t.Errorf("expected an error but didn't get one")
+		}
+
+		if !errors.Is(ErrNoHandID, err) {
+			t.Errorf("expected a %v type of error but got a different one: %v", ErrNoHandID, err)
+		}
+	})
 }
 
 func TestHandPlayerNames(t *testing.T) {

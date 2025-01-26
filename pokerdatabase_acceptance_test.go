@@ -2,7 +2,6 @@ package pokerhud_test
 
 import (
 	"errors"
-	"fmt"
 	"io/fs"
 	"pokerhud"
 	"reflect"
@@ -20,7 +19,6 @@ func TestHandHistoriesFromFS(t *testing.T) {
 		handHistory, _ := pokerhud.HandHistoryFromFS(fileSystem)
 
 		if len(handHistory) != 4 {
-			fmt.Printf("%#v", handHistory)
 			t.Errorf("wanted 4 hands, got %d", len(handHistory))
 		}
 	})
@@ -33,6 +31,21 @@ func TestHandHistoriesFromFS(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected an err but didn't get one")
 		}
+	})
+
+	t.Run("test when one file fails", func(t *testing.T) {
+		fileSystem := fstest.MapFS{
+			"zoom.txt":      {Data: []byte(zoomHand1)},
+			"cash game.txt": {Data: []byte(cashGame1)},
+			"failure.txt":   {Data: []byte("not a hand")},
+		}
+
+		handHistory, _ := pokerhud.HandHistoryFromFS(fileSystem)
+
+		if len(handHistory) != 4 {
+			t.Errorf("wanted 2 hands, got %d", len(handHistory))
+		}
+
 	})
 
 	t.Run("hand data is correctly parsed from a text file", func(t *testing.T) {
@@ -94,6 +107,12 @@ type failingFS struct{}
 
 func (f failingFS) Open(string) (fs.File, error) {
 	return nil, errors.New("oh no i always fail")
+}
+
+type failingFile struct{}
+
+func (f failingFile) Open(string) {
+
 }
 
 const zoomHand1 string = `PokerStars Zoom Hand #254445778475:  Hold'em No Limit ($0.02/$0.05) - 2025/01/19 12:00:43 WET [2025/01/19 7:00:43 ET]
@@ -309,33 +328,3 @@ Seat 3: KavarzE (big blind) folded on the Flop
 Seat 4: arsad725 folded before Flop (didn't bet)
 Seat 5: RE0309 folded on the Flop
 Seat 6: pernadao1599 showed [Jh Qc] and won ($0.89) with a pair of Jacks`
-
-// func buildActionType(testInfo string) (string, error) {
-// 	stringReader := strings.NewReader(testInfo)
-// 	scanner := bufio.NewScanner(stringReader)
-// 	return pokerhud.ActionTypeFromText(scanner)
-// }
-
-// func buildActions(testDataString string) []pokerhud.Action {
-// 	var actions []pokerhud.Action
-// 	stringReader := strings.NewReader(testDataString)
-// 	scanner := bufio.NewScanner(stringReader)
-// 	for scanner.Scan() {
-// 		actionType, _ := pokerhud.ActionTypeFromText(scanner)
-// 		actions = append(actions, pokerhud.Action{
-// 			// Player ,
-// 			ActionType: actionType,
-// 		})
-// 	}
-// }
-
-// func actionBuildHelper(testString string) []pokerhud.Action {
-// 	var actions []pokerhud.Action
-// 	stringReader := strings.NewReader(testString)
-// 	scanner := bufio.NewScanner(stringReader)
-// 	for scanner.Scan() {
-// 		newActions := pokerhud.BuildActions(scanner, actions)
-// 		actions = append(actions, newActions...)
-// 	}
-// 	return actions
-// }

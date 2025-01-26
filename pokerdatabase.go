@@ -49,6 +49,7 @@ const (
 // Global Errs
 var (
 	ErrNoAction   = errors.New("error no action found on text line")
+	ErrNoHandID   = errors.New("error no hand ID was found, unable parse. ignoring hand")
 	errNoCurrency = errors.New("error parsing Action.Amount, expected currency'")
 )
 
@@ -85,6 +86,10 @@ type Player struct {
 	Username string
 }
 
+type handImport struct {
+	hands []Hand
+}
+
 func (t ActionType) String() string {
 	return string(t)
 }
@@ -98,13 +103,29 @@ func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, error) {
 
 	var allHands []Hand
 
-	for _, f := range dir {
-		sessionHands, err := handsFromSessionFile(fileSystem, f.Name())
-		if err != nil {
-			return nil, fmt.Errorf("error reading file: %v", f.Name())
-		}
+	allHandsChannel := make(chan handImport)
 
-		allHands = slices.Concat(allHands, sessionHands)
+	for _, f := range dir {
+
+		go func() error {
+
+			sessionHands, sessionFileErr := handsFromSessionFile(fileSystem, f.Name())
+
+			if sessionFileErr != nil {
+				return fmt.Errorf("%w, error reading file: %v", sessionFileErr, f.Name())
+			}
+
+			allHandsChannel <- handImport{sessionHands}
+
+			return nil
+		}()
+	}
+
+	for i := 0; i < len(dir); i++ {
+		h, _ := <-allHandsChannel
+		if h.hands != nil {
+			allHands = slices.Concat(allHands, h.hands)
+		}
 	}
 
 	return allHands, nil
@@ -115,10 +136,16 @@ func handsFromSessionFile(filesystem fs.FS, filename string) ([]Hand, error) {
 	if err != nil {
 		return nil, err
 	}
-	return parseHandData(handData), nil
+	hands, parseErr := parseHandData(handData)
+
+	if parseErr != nil {
+		log.Println(parseErr)
+	}
+
+	return hands, nil
 }
 
-func parseHandData(fileData []byte) []Hand {
+func parseHandData(fileData []byte) ([]Hand, error) {
 	sessionData := string(fileData)
 	handsText := strings.Split(sessionData, handInfoDelimiter)
 
@@ -127,6 +154,9 @@ func parseHandData(fileData []byte) []Hand {
 	for _, h := range handsText {
 
 		handID := handIDFromText(h)
+		if handID == "" {
+			return nil, ErrNoHandID
+		}
 		scanner := createHandScanner(h)
 
 		var playerNames []Player
@@ -152,7 +182,7 @@ func parseHandData(fileData []byte) []Hand {
 			Actions:   actions,
 		})
 	}
-	return hands
+	return hands, nil
 }
 
 // ParseAndAppendActions builds an action from text data, and appends it to the existing Action slice before returning the now updated Action slice
@@ -237,7 +267,10 @@ func createHandScanner(h string) *bufio.Scanner {
 
 // Returns a hand Id string from the hand info string
 func handIDFromText(h string) string {
-	return strings.Split(strings.Split(h, ":")[0], "#")[1]
+	if strings.Contains(h, ":") {
+		return strings.Split(strings.Split(h, ":")[0], "#")[1]
+	}
+	return ""
 }
 
 func handPlayerNameFromText(scanner *bufio.Scanner) string {
