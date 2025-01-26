@@ -104,24 +104,25 @@ func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, error) {
 	var allHands []Hand
 
 	allHandsChannel := make(chan handImport)
+	defer close(allHandsChannel)
 
 	for _, f := range dir {
 
-		go func() error {
+		go func() {
 
 			sessionHands, sessionFileErr := handsFromSessionFile(fileSystem, f.Name())
 
 			if sessionFileErr != nil {
-				return fmt.Errorf("%w, error reading file: %v", sessionFileErr, f.Name())
+				log.Printf("%s, error reading file: %v", sessionFileErr, f.Name())
+				return
 			}
 
 			allHandsChannel <- handImport{sessionHands}
-
-			return nil
 		}()
 	}
 
-	for i := 0; i < len(dir); i++ {
+	
+		for i := 0; i < len(dir); i++ {
 		h, _ := <-allHandsChannel
 		if h.hands != nil {
 			allHands = slices.Concat(allHands, h.hands)
@@ -130,6 +131,7 @@ func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, error) {
 
 	return allHands, nil
 }
+
 
 func handsFromSessionFile(filesystem fs.FS, filename string) ([]Hand, error) {
 	handData, err := fs.ReadFile(filesystem, filename)

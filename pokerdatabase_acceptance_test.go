@@ -91,6 +91,14 @@ func assertHand(t *testing.T, got, want pokerhud.Hand) {
 	}
 }
 
+func BenchmarkHandHistoryFromFS(b *testing.B) {
+	pokerhud.HandHistoryFromFS(fstest.MapFS{
+		"zoom.txt":      {Data: []byte(zoomHand1)},
+		"cash game.txt": {Data: []byte(cashGame1)},
+		"failure.txt":   {Data: []byte("not a hand")},
+	})
+}
+
 func actionBuildHelper(playerName string, actionType pokerhud.ActionType, street pokerhud.Street, order int, amount float64) pokerhud.Action {
 	return pokerhud.Action{
 		Player: pokerhud.Player{
