@@ -129,9 +129,10 @@ func TestActionAmountFromText(t *testing.T) {
 		for _, c := range cases {
 			t.Run(c, func(t *testing.T) {
 				_, err := actionAmountFromText(testingScanner(c))
+				want := CurrencyError(fmt.Sprintf("on line %v", c)).Error()
 
-				if err != ErrNoCurrency {
-					t.Fatalf("expected %v error but didn't get one", ErrNoCurrency)
+				if err.Error() != want {
+					t.Fatalf("expected \"%v\" error but got \"%v\"", CurrencyError(fmt.Sprintf("on line %v", c)), err)
 				}
 			})
 		}
@@ -223,7 +224,7 @@ func TestSetHeroCards(t *testing.T) {
 func TestHandIdFromText(t *testing.T) {
 	handData := "Pokerstars #6548679821301346841: Holdem don't care"
 
-	got := handIdFromText(handData)
+	got := handIDFromText(handData)
 	want := "6548679821301346841"
 
 	if got != want {
@@ -236,7 +237,7 @@ func TestParseAction(t *testing.T) {
 		{Player{"Kavarz"}, 2, Flop, Bets, 3},
 		{Player{"Burty"}, 3, Flop, Calls, 3},
 	}
-	var dummyStreet Street = Flop
+	var dummyStreet = Flop
 	order := 4
 
 	handData := "kv_def: calls $3"

@@ -44,7 +44,7 @@ func TestHandHistoriesFromFS(t *testing.T) {
 
 		got := handHistory[0]
 		want := pokerhud.Hand{
-			Id:      "254446123323",
+			ID:      "254446123323",
 			Players: []pokerhud.Player{{"maximoIV"}, {"dlourencobss"}, {"KavarzE"}, {"arsad725"}, {"RE0309"}, {"pernadao1599"}},
 			Actions: []pokerhud.Action{
 				actionBuildHelper("dlourencobss", pokerhud.Posts, pokerhud.Preflop, 1, 0.02),

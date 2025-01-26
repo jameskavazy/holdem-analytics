@@ -28,8 +28,11 @@ const (
 	flopSignifier     string = "*** FLOP ***"
 	turnSignifier     string = "*** TURN ***"
 	riverSignifier    string = "*** RIVER ***"
-	Dollar            string = "$"
 
+	// Dollar - A Currency
+	Dollar string = "$"
+
+	// Street - stages of a poker hand
 	Preflop Street = "preflop"
 	Flop    Street = "flop"
 	Turn    Street = "turn"
@@ -43,14 +46,20 @@ const (
 	Posts  ActionType = "posts"
 )
 
+// Global Errs
 var (
-	ErrNoAction   = errors.New("no action found on text line")
-	ErrNoCurrency = errors.New("error parsing Action.Amount, line expected a monetary amount not contain '$'")
+	ErrNoAction   = errors.New("error no action found on text line")
+	errNoCurrency = errors.New("error parsing Action.Amount, expected currency'")
 )
+
+// CurrencyError formats sends an error accepting a msg to provide further information about causation
+func CurrencyError(msg string) error {
+	return fmt.Errorf("%w: %s", errNoCurrency, msg)
+}
 
 // Hand represents a hand of poker
 type Hand struct {
-	Id        string
+	ID        string
 	Players   []Player
 	HeroCards string
 	Actions   []Action
@@ -80,7 +89,7 @@ func (t ActionType) String() string {
 	return string(t)
 }
 
-// Imports user hand history for the first time. Returns a slice of hands for insertion into the database.
+// HandHistoryFromFS imports user hand history for the first time. Returns a slice of hands for insertion into the database.
 func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, error) {
 	dir, err := fs.ReadDir(fileSystem, ".")
 	if err != nil {
@@ -117,14 +126,14 @@ func parseHandData(fileData []byte) []Hand {
 
 	for _, h := range handsText {
 
-		handId := handIdFromText(h)
+		handID := handIDFromText(h)
 		scanner := createHandScanner(h)
 
 		var playerNames []Player
 		var actions []Action
 		var heroCards string
-		var street Street = Preflop
-		var order int = 1
+		var street = Preflop
+		var order = 1
 
 		for scanner.Scan() {
 			playerNames = updatePlayerNames(scanner, playerNames)
@@ -137,7 +146,7 @@ func parseHandData(fileData []byte) []Hand {
 		}
 
 		hands = append(hands, Hand{
-			Id:        handId,
+			ID:        handID,
 			Players:   playerNames,
 			HeroCards: heroCards,
 			Actions:   actions,
@@ -146,12 +155,12 @@ func parseHandData(fileData []byte) []Hand {
 	return hands
 }
 
-// Builds action from text data, appends to the existing slice and returns back an updated slice
+// ParseAndAppendActions builds an action from text data, and appends it to the existing Action slice before returning the now updated Action slice
 func ParseAndAppendActions(scanner *bufio.Scanner, street *Street, actions []Action, order *int) ([]Action, error) {
 	getStreetFromText(scanner, street)
 	updatedActions, err := parseAction(scanner, actions, street, order)
 	if err != nil {
-		if err != ErrNoAction || err != ErrNoCurrency {
+		if !errors.Is(err, ErrNoAction) || !errors.Is(err, errNoCurrency) {
 			return updatedActions, err
 		}
 		return updatedActions, nil
@@ -161,7 +170,8 @@ func ParseAndAppendActions(scanner *bufio.Scanner, street *Street, actions []Act
 
 func parseAction(scanner *bufio.Scanner, actions []Action, actionStreet *Street, order *int) ([]Action, error) {
 	actionType, err := actionTypeFromText(scanner)
-	if err == ErrNoAction {
+
+	if errors.Is(err, ErrNoAction) {
 		return actions, nil
 	}
 
@@ -226,7 +236,7 @@ func createHandScanner(h string) *bufio.Scanner {
 }
 
 // Returns a hand Id string from the hand info string
-func handIdFromText(h string) string {
+func handIDFromText(h string) string {
 	return strings.Split(strings.Split(h, ":")[0], "#")[1]
 }
 
@@ -304,6 +314,5 @@ func actionAmountFromText(scanner *bufio.Scanner) (float64, error) {
 		return 0, nil
 	}
 
-	ErrNoCurrency = fmt.Errorf("error on line %v parsing Action.Amount, line expected a monetary amount not contain '$'", line)
-	return 0, ErrNoCurrency
+	return 0, CurrencyError(fmt.Sprintf("on line %v", line))
 }
