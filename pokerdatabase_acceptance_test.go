@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"testing"
 	"testing/fstest"
+	"time"
 )
 
 func TestHandHistoriesFromFS(t *testing.T) {
@@ -54,10 +55,12 @@ func TestHandHistoriesFromFS(t *testing.T) {
 		}
 
 		handHistory, _ := pokerhud.HandHistoryFromFS(fileSystem)
+		handTime, _ := time.Parse(time.DateTime, "2025-01-19 12:38:55")
 
 		got := handHistory[0]
 		want := pokerhud.Hand{
 			ID:      "254446123323",
+			Date:    handTime.Local(),
 			Players: []pokerhud.Player{{"maximoIV"}, {"dlourencobss"}, {"KavarzE"}, {"arsad725"}, {"RE0309"}, {"pernadao1599"}},
 			Actions: []pokerhud.Action{
 				actionBuildHelper("dlourencobss", pokerhud.Posts, pokerhud.Preflop, 1, 0.02),

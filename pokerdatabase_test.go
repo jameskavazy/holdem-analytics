@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 )
 
 func TestActionTypeFromText(t *testing.T) {
@@ -81,18 +82,6 @@ func TestPlayerNameActionFromText(t *testing.T) {
 		})
 	}
 }
-
-// func TestHandsFromSessionFile(t *testing.T) {
-// 	fileSystem := fstest.MapFS{
-// 		"failed": {Data: nil},
-// 	}
-
-// 	got, _ := handsFromSessionFile(fileSystem, "failed")
-// 	if got != nil {
-// 		t.Error("oh god")
-// 	}
-
-// }
 
 func TestActionAmountFromText(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
@@ -166,7 +155,7 @@ KavarzE: bets $2.33`)},
 
 		want := []Hand{
 			{
-				"123", []Player{{Username: "test"}, {Username: "test2"}}, "Ad Ac", []Action{
+				"123", time.Time{}.Local(), []Player{{Username: "test"}, {Username: "test2"}}, "Ad Ac", []Action{
 					{Player{Username: "KavarzE"}, 1, Preflop, Bets, 2.33},
 				},
 			},
@@ -205,7 +194,7 @@ KavarzE: bets $2.33`)
 		got, _ := parseHandData(handData)
 		want := []Hand{
 			{
-				"123", []Player{{Username: "test"}, {Username: "test2"}}, "Ad Ac", []Action{{Player{Username: "KavarzE"}, 1, Preflop, Bets, 2.33}},
+				"123", time.Time{}.Local(), []Player{{Username: "test"}, {Username: "test2"}}, "Ad Ac", []Action{{Player{Username: "KavarzE"}, 1, Preflop, Bets, 2.33}},
 			},
 		}
 
@@ -286,6 +275,45 @@ func TestParseAction(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("wanted %#v but got %#v", want, got)
 	}
+}
+
+func TestDateFromHandText(t *testing.T) {
+	cases := []struct {
+		test string
+		want string
+	}{
+		{"PokerStars Zoom Hand #254489598204:  Hold'em No Limit ($0.02/$0.05) - 2025/01/21 20:51:32 WET [2025/01/21 15:51:32 ET]", "2025-01-21 15:51:32"},
+		{"PokerStars Zoom Hand #254489608193:  Hold'em No Limit ($0.02/$0.05) - 2025/01/21 20:52:05 WET [2025/01/21 15:52:05 ET]", "2025-01-21 15:52:05"},
+		{"PokerStars Zoom Hand #254489609065:  Hold'em No Limit ($0.02/$0.05) - 2025/01/21 20:52:09 WET [2025/01/21 15:52:09 ET]", "2025-01-21 15:52:09"},
+		{"PokerStars Zoom Hand #254489686769:  Hold'em No Limit ($0.02/$0.05) - 2025/01/21 20:56:56 WET [2025/01/21 15:56:56 ET]", "2025-01-21 15:56:56"},
+		{"PokerStars Hand #254581458091:  Hold'em No Limit ($0.02/$0.05 USD) - 2025/01/27 17:49:38 WET [2025/01/27 12:49:38 ET]", "2025-01-27 12:49:38"},
+		{"PokerStars Hand #254581458091:  Hold'em No Limit ($0.02/$0.05 USD) - [2025/01/27 12:49:38 ET]", "2025-01-27 12:49:38"},
+		{"PokerStars Hand #254581458091:  Hold'em No Limit ($0.02/$0.05 USD) - ", ""},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.test, func(t *testing.T) {
+
+			got := dateTimeStringFromHandText(tt.test)
+			if got != tt.want {
+				t.Errorf("got %v but wanted %v", got, tt.want)
+			}
+
+		})
+	}
+}
+
+func TestParseDateTime(t *testing.T) {
+	info := "2025-01-27 12:49:38"
+
+	got := parseDateTime(info)
+	localTime, _ := time.Parse(time.DateTime, "2025-01-27 17:49:38")
+	want := localTime.Local()
+
+	if got != want {
+		t.Errorf("got %v wanted %v", got, want)
+	}
+
 }
 
 func testingScanner(handData string) *bufio.Scanner {

@@ -21,6 +21,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -61,6 +62,7 @@ func CurrencyError(msg string) error {
 // Hand represents a hand of poker
 type Hand struct {
 	ID        string
+	Date      time.Time
 	Players   []Player
 	HeroCards string
 	Actions   []Action
@@ -103,7 +105,7 @@ func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, error) {
 
 	var allHands []Hand
 
-	allHandsChannel := make(chan handImport)
+	allHandsChannel := make(chan handImport, len(dir))
 	defer close(allHandsChannel)
 
 	for _, f := range dir {
@@ -121,17 +123,14 @@ func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, error) {
 		}()
 	}
 
-	
-		for i := 0; i < len(dir); i++ {
+	for i := 0; i < len(dir); i++ {
 		h, _ := <-allHandsChannel
 		if h.hands != nil {
 			allHands = slices.Concat(allHands, h.hands)
 		}
 	}
-
 	return allHands, nil
 }
-
 
 func handsFromSessionFile(filesystem fs.FS, filename string) ([]Hand, error) {
 	handData, err := fs.ReadFile(filesystem, filename)
@@ -155,19 +154,25 @@ func parseHandData(fileData []byte) ([]Hand, error) {
 
 	for _, h := range handsText {
 
+		// Grab unique identifiers of hand
 		handID := handIDFromText(h)
 		if handID == "" {
 			return nil, ErrNoHandID
 		}
-		scanner := createHandScanner(h)
+		dateTime := parseDateTime(dateTimeStringFromHandText(h))
+				
 
+		// Loop through and append remaining data
+		scanner := createHandScanner(h)
 		var playerNames []Player
 		var actions []Action
 		var heroCards string
 		var street = Preflop
 		var order = 1
 
+		
 		for scanner.Scan() {
+			
 			playerNames = updatePlayerNames(scanner, playerNames)
 			heroCards = setHeroCards(scanner, heroCards)
 			actionResult, actionErr := ParseAndAppendActions(scanner, &street, actions, &order)
@@ -179,6 +184,7 @@ func parseHandData(fileData []byte) ([]Hand, error) {
 
 		hands = append(hands, Hand{
 			ID:        handID,
+			Date:      dateTime,
 			Players:   playerNames,
 			HeroCards: heroCards,
 			Actions:   actions,
@@ -351,3 +357,31 @@ func actionAmountFromText(scanner *bufio.Scanner) (float64, error) {
 
 	return 0, CurrencyError(fmt.Sprintf("on line %v", line))
 }
+
+func dateTimeStringFromHandText(line string) string {
+	
+	var timeString string
+	if strings.ContainsAny(line, "[]") {
+		timeString = strings.Split(strings.Split(line, "[")[1], " ET]")[0]
+	}
+	
+	formattedTimeString := strings.Map(func(r rune) rune {
+		if r == '/' {
+			return '-'
+		}
+		return r
+	}, timeString)
+	return formattedTimeString
+}
+
+func parseDateTime(timeString string) time.Time {
+	siteLocation, _ := time.LoadLocation("America/New_York")
+	siteTime, _ := time.ParseInLocation(time.DateTime, timeString, siteLocation)
+	// fmt.Println("hopefully this is will be -0500 hours ", siteTime)
+
+	// fmt.Print("local time: ", siteTime.Local())
+
+	return siteTime.Local()
+
+}
+
