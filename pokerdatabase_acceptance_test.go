@@ -24,6 +24,38 @@ func TestHandHistoriesFromFS(t *testing.T) {
 		}
 	})
 
+	// t.Run("after successfully parsing the file, the HH file is moved to assigned dir", func(t *testing.T) {
+	// 	fileSystem := fstest.MapFS{
+	// 		"zoom.txt":      {Data: []byte(zoomHand1)},
+	// 		"cash game.txt": {Data: []byte(cashGame1)},
+	// 		"new-folder/" : &fstest.MapFile{Mode: fs.ModeDir},
+	// 	}
+
+	// 	pokerhud.HandHistoryFromFS(fileSystem)
+
+	// 	want := fstest.MapFS{
+	// 		"new-folder/" : &fstest.MapFile{
+	// 			Mode: fs.ModeDir,
+	// 		},
+	// 	}
+
+	// 	want["new-folder/zoom.txt"] = &fstest.MapFile{
+	// 		Data: []byte(zoomHand1),
+	// 		Mode: 0664,
+	// 	}
+
+	// 	want["new-folder/cash game.txt"] = &fstest.MapFile{
+	// 		Data: []byte(cashGame1),
+	// 		Mode: 0664,
+	// 	}
+		
+
+	// 	if reflect.DeepEqual(fileSystem, want) {
+	// 		t.Errorf("got %#v, but wanted %#v", fileSystem, want)
+	// 	}
+
+	// })
+
 	t.Run("failing filesystem", func(t *testing.T) {
 		fileSystem := failingFS{}
 
@@ -339,3 +371,54 @@ Seat 3: KavarzE (big blind) folded on the Flop
 Seat 4: arsad725 folded before Flop (didn't bet)
 Seat 5: RE0309 folded on the Flop
 Seat 6: pernadao1599 showed [Jh Qc] and won ($0.89) with a pair of Jacks`
+
+
+
+const runItTwice string = `PokerStars Zoom Hand #254607988518:  Hold'em No Limit ($0.02/$0.05) - 2025/01/29 16:30:35 WET [2025/01/29 11:30:35 ET]
+Table 'Donati' 6-max Seat #1 is the button
+Seat 1: TurivVB240492 ($1.94 in chips)
+Seat 2: KavarzE ($15.14 in chips)
+Seat 3: RoMike2 ($5.07 in chips)
+Seat 4: hiroakin ($5 in chips)
+Seat 5: ThxWasOby3 ($5.22 in chips)
+Seat 6: VLSALT ($5 in chips)
+KavarzE: posts small blind $0.02
+RoMike2: posts big blind $0.05
+*** HOLE CARDS ***
+Dealt to KavarzE [Jc Js]
+hiroakin: folds
+ThxWasOby3: raises $0.10 to $0.15
+VLSALT: folds
+TurivVB240492: folds
+KavarzE: raises $0.45 to $0.60
+RoMike2: folds
+ThxWasOby3: raises $0.72 to $1.32
+KavarzE: calls $0.72
+*** FLOP *** [7d 2h 8h]
+KavarzE: checks
+ThxWasOby3: checks
+*** TURN *** [7d 2h 8h] [Jh]
+KavarzE: bets $1.81
+ThxWasOby3: raises $2.09 to $3.90 and is all-in
+KavarzE: calls $2.09
+*** FIRST RIVER *** [7d 2h 8h Jh] [3d]
+*** SECOND RIVER *** [7d 2h 8h Jh] [Qh]
+*** FIRST SHOW DOWN ***
+KavarzE: shows [Jc Js] (three of a kind, Jacks)
+ThxWasOby3: shows [Ah Qd] (high card Ace)
+KavarzE collected $5.03 from pot
+*** SECOND SHOW DOWN ***
+KavarzE: shows [Jc Js] (three of a kind, Jacks)
+ThxWasOby3: shows [Ah Qd] (a flush, Ace high)
+ThxWasOby3 collected $5.02 from pot
+*** SUMMARY ***
+Total pot $10.49 | Rake $0.44
+Hand was run twice
+FIRST Board [7d 2h 8h Jh 3d]
+SECOND Board [7d 2h 8h Jh Qh]
+Seat 1: TurivVB240492 (button) folded before Flop (didn't bet)
+Seat 2: KavarzE (small blind) showed [Jc Js] and won ($5.03) with three of a kind, Jacks, and lost with three of a kind, Jacks
+Seat 3: RoMike2 (big blind) folded before Flop
+Seat 4: hiroakin folded before Flop (didn't bet)
+Seat 5: ThxWasOby3 showed [Ah Qd] and lost with high card Ace, and won ($5.02) with a flush, Ace high
+Seat 6: VLSALT folded before Flop (didn't bet)` 

@@ -28,23 +28,30 @@ const (
 	handInfoDelimiter string = "\n\n\n"
 	flopSignifier     string = "*** FLOP ***"
 	turnSignifier     string = "*** TURN ***"
-	riverSignifier    string = "*** RIVER ***"
+	riverSignifier    string = "*** RIVER ***" //TODO players can run it twice... >  *** FIRST RIVER *** *** SECOND RIVER ***
+)
 
-	// Dollar - A Currency
-	Dollar string = "$"
-
-	// Street - stages of a poker hand
+// Street represents stages of a poker hand
+const (
 	Preflop Street = "preflop"
 	Flop    Street = "flop"
 	Turn    Street = "turn"
 	River   Street = "river"
+)
 
+// ActionType - the type of player actions
+const (
 	Folds  ActionType = "folds"
 	Checks ActionType = "checks"
 	Calls  ActionType = "calls"
 	Bets   ActionType = "bets"
 	Raises ActionType = "raises"
 	Posts  ActionType = "posts"
+)
+
+// Currencies constants
+const (
+	Dollar string = "$"
 )
 
 // Global Errs
@@ -92,6 +99,10 @@ type handImport struct {
 	hands []Hand
 }
 
+type errorImport struct {
+	handErr []error
+}
+
 func (t ActionType) String() string {
 	return string(t)
 }
@@ -104,18 +115,24 @@ func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, error) {
 	}
 
 	var allHands []Hand
+	// var importErrs []error
 
 	allHandsChannel := make(chan handImport, len(dir))
+	// errorChannel := make(chan errorImport, len(dir))
 	defer close(allHandsChannel)
 
 	for _, f := range dir {
+		// TODO - move file once processed... also some sort of logic that works out once whole file is read to move it? Get Hands While Playing...
+		// Count handErrs so we can tell the user X amount of hands errors
+		// Count the number of duplicates...
 
 		go func() {
 
 			sessionHands, sessionFileErr := handsFromSessionFile(fileSystem, f.Name())
 
 			if sessionFileErr != nil {
-				log.Printf("%s, error reading file: %v", sessionFileErr, f.Name())
+				log.Println(sessionFileErr)
+				// errorChannel <- errorImport{handErr: []error{sessionFileErr}}
 				return
 			}
 
@@ -125,10 +142,18 @@ func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, error) {
 
 	for i := 0; i < len(dir); i++ {
 		h, _ := <-allHandsChannel
+		// e, _ := <-errorChannel
 		if h.hands != nil {
 			allHands = slices.Concat(allHands, h.hands)
 		}
+
+		// else {
+		// 	importErrs = slices.Concat(importErrs, e.handErr)
+		// }
 	}
+
+	// log.Printf("%v import errors\n", len(importErrs))
+
 	return allHands, nil
 }
 
@@ -160,7 +185,6 @@ func parseHandData(fileData []byte) ([]Hand, error) {
 			return nil, ErrNoHandID
 		}
 		dateTime := parseDateTime(dateTimeStringFromHandText(h))
-				
 
 		// Loop through and append remaining data
 		scanner := createHandScanner(h)
@@ -170,9 +194,8 @@ func parseHandData(fileData []byte) ([]Hand, error) {
 		var street = Preflop
 		var order = 1
 
-		
 		for scanner.Scan() {
-			
+
 			playerNames = updatePlayerNames(scanner, playerNames)
 			heroCards = setHeroCards(scanner, heroCards)
 			actionResult, actionErr := ParseAndAppendActions(scanner, &street, actions, &order)
@@ -359,12 +382,12 @@ func actionAmountFromText(scanner *bufio.Scanner) (float64, error) {
 }
 
 func dateTimeStringFromHandText(line string) string {
-	
+
 	var timeString string
 	if strings.ContainsAny(line, "[]") {
 		timeString = strings.Split(strings.Split(line, "[")[1], " ET]")[0]
 	}
-	
+
 	formattedTimeString := strings.Map(func(r rune) rune {
 		if r == '/' {
 			return '-'
@@ -377,11 +400,5 @@ func dateTimeStringFromHandText(line string) string {
 func parseDateTime(timeString string) time.Time {
 	siteLocation, _ := time.LoadLocation("America/New_York")
 	siteTime, _ := time.ParseInLocation(time.DateTime, timeString, siteLocation)
-	// fmt.Println("hopefully this is will be -0500 hours ", siteTime)
-
-	// fmt.Print("local time: ", siteTime.Local())
-
 	return siteTime.Local()
-
 }
-
