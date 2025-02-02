@@ -140,8 +140,8 @@ func TestHandHistoriesFromFS(t *testing.T) {
 				actionBuildHelper("dlourencobss", pokerhud.Checks, pokerhud.River, 15, 0),
 				actionBuildHelper("pernadao1599", pokerhud.Checks, pokerhud.River, 16, 0),
 			},
-			HeroCards: "2s 5d",
-			// CommunityCards: []Cards{"2h", "Ts", "Jc", "3h", "8c"},
+			HeroCards:      "2s 5d",
+			CommunityCards: []string{"2h Ts Jc 3h 8c"},
 		}
 
 		assertHand(t, got, want)
@@ -176,7 +176,8 @@ func TestHandHistoriesFromFS(t *testing.T) {
 				actionBuildHelper("ThxWasOby3", pokerhud.Raises, pokerhud.Turn, 14, 2.09),
 				actionBuildHelper("KavarzE", pokerhud.Calls, pokerhud.Turn, 15, 2.09),
 			},
-			HeroCards: "Jc Js",
+			HeroCards:      "Jc Js",
+			CommunityCards: []string{"7d 2h 8h Jh 3d", "7d 2h 8h Jh Qh"},
 		}
 
 		assertHand(t, got, want)

@@ -75,11 +75,12 @@ func NoActionError(msg string) error {
 
 // Hand represents a hand of poker
 type Hand struct {
-	ID        string
-	Date      time.Time
-	Players   []Player
-	HeroCards string
-	Actions   []Action
+	ID             string
+	Date           time.Time
+	Players        []Player
+	HeroCards      string
+	Actions        []Action
+	CommunityCards []string
 }
 
 // Action is a representation of individual actions made by players within a specific hand
@@ -190,6 +191,7 @@ hands:
 		var heroCards string
 		var street = Preflop
 		var order = 1
+		var board []string = parseCommunityCards(h)
 
 		for scanner.Scan() {
 
@@ -210,6 +212,7 @@ hands:
 			Players:   playerNames,
 			HeroCards: heroCards,
 			Actions:   actions,
+			CommunityCards: board,
 		})
 	}
 	return hands, errs
@@ -406,3 +409,18 @@ func parseDateTime(timeString string) time.Time {
 	siteTime, _ := time.ParseInLocation(time.DateTime, timeString, siteLocation)
 	return siteTime.Local()
 }
+
+func parseCommunityCards(handText string) []string {
+	if strings.Contains(handText, "Hand was run twice") {
+		firstBoard := strings.Split(strings.Split(handText, "FIRST Board [")[1], "]")[0] 
+		secondBoard := strings.Split(strings.Split(handText, "SECOND Board [")[1], "]")[0]
+		return []string{firstBoard, secondBoard}
+	}	
+	if strings.Contains(handText, "Board [") {
+		board := strings.Split(strings.Split(handText, "Board [")[1], "]")[0]
+		return []string{board}
+	}
+	return nil
+}
+
+

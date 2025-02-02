@@ -158,6 +158,7 @@ KavarzE: bets $2.33`)},
 				"123", time.Time{}.Local(), []Player{{Username: "test"}, {Username: "test2"}}, "Ad Ac", []Action{
 					{Player{Username: "KavarzE"}, 1, Preflop, Bets, 2.33},
 				},
+				nil,
 			},
 		}
 
@@ -194,7 +195,7 @@ KavarzE: bets $2.33`)
 		got, _ := parseHandData(handData)
 		want := []Hand{
 			{
-				"123", time.Time{}.Local(), []Player{{Username: "test"}, {Username: "test2"}}, "Ad Ac", []Action{{Player{Username: "KavarzE"}, 1, Preflop, Bets, 2.33}},
+				"123", time.Time{}.Local(), []Player{{Username: "test"}, {Username: "test2"}}, "Ad Ac", []Action{{Player{Username: "KavarzE"}, 1, Preflop, Bets, 2.33}}, nil,
 			},
 		}
 
