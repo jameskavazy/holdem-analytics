@@ -212,7 +212,7 @@ KavarzE: bets $2.33`)
 			t.Errorf("expected an error but didn't get one")
 		}
 
-		if !errors.Is(ErrNoHandID, err[0]) {
+		if !errors.Is(ErrNoHandID, errors.Unwrap(err[0])) {
 			t.Errorf("expected a %v type of error but got a different one: %v", ErrNoHandID, err)
 		}
 	})

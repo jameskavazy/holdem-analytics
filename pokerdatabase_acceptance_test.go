@@ -2,6 +2,7 @@ package pokerhud_test
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"pokerhud"
 	"reflect"
@@ -28,6 +29,30 @@ func TestHandHistoriesFromFS(t *testing.T) {
 		}
 	})
 
+	t.Run("a file with corrupted data", func(t *testing.T) {
+		fileSystem := fstest.MapFS{
+			"cash game.txt": {Data: []byte(brokenHandData)},
+		}
+		handHistory, err := pokerhud.HandHistoryFromFS(fileSystem)
+
+		if len(handHistory) != 2 {
+			t.Errorf("got %v errors but wanted 2", len(handHistory))
+		}
+
+		if err != nil {
+			if !errors.Is(err[0], pokerhud.ErrNoHandID) {
+				fmt.Println("Unwrapped Error:", errors.Unwrap(err[0]))
+				fmt.Println("The error compared to:", pokerhud.ErrNoHandID)
+				t.Errorf("got unexpected error %v but wanted %v", err[0].Error(), pokerhud.ErrNoHandID)
+			}
+
+			if len(err) != 1 {
+				t.Fatal("incorrect amount of errors")
+			}
+		}
+
+	})
+
 	// t.Run("after successfully parsing the file, the HH file is moved to assigned dir", func(t *testing.T) {
 	// 	fileSystem := fstest.MapFS{
 	// 		"zoom.txt":      {Data: []byte(zoomHand1)},
@@ -52,7 +77,6 @@ func TestHandHistoriesFromFS(t *testing.T) {
 	// 		Data: []byte(cashGame1),
 	// 		Mode: 0664,
 	// 	}
-		
 
 	// 	if reflect.DeepEqual(fileSystem, want) {
 	// 		t.Errorf("got %#v, but wanted %#v", fileSystem, want)
@@ -117,6 +141,42 @@ func TestHandHistoriesFromFS(t *testing.T) {
 				actionBuildHelper("pernadao1599", pokerhud.Checks, pokerhud.River, 16, 0),
 			},
 			HeroCards: "2s 5d",
+			// CommunityCards: []Cards{"2h", "Ts", "Jc", "3h", "8c"},
+		}
+
+		assertHand(t, got, want)
+	})
+
+	t.Run("run it twice hand parse correctly", func(t *testing.T) {
+		fileSystem := fstest.MapFS{
+			"RIT": {Data: []byte(runItTwice)},
+		}
+		handHistory, _ := pokerhud.HandHistoryFromFS(fileSystem)
+		handTime, _ := time.Parse(time.DateTime, "2025-01-29 16:30:35")
+
+		got := handHistory[0]
+		want := pokerhud.Hand{
+			ID:      "254607988518",
+			Date:    handTime.Local(),
+			Players: []pokerhud.Player{{"TurivVB240492"}, {"KavarzE"}, {"RoMike2"}, {"hiroakin"}, {"ThxWasOby3"}, {"VLSALT"}},
+			Actions: []pokerhud.Action{
+				actionBuildHelper("KavarzE", pokerhud.Posts, pokerhud.Preflop, 1, 0.02),
+				actionBuildHelper("RoMike2", pokerhud.Posts, pokerhud.Preflop, 2, 0.05),
+				actionBuildHelper("hiroakin", pokerhud.Folds, pokerhud.Preflop, 3, 0.0),
+				actionBuildHelper("ThxWasOby3", pokerhud.Raises, pokerhud.Preflop, 4, 0.10),
+				actionBuildHelper("VLSALT", pokerhud.Folds, pokerhud.Preflop, 5, 0),
+				actionBuildHelper("TurivVB240492", pokerhud.Folds, pokerhud.Preflop, 6, 0),
+				actionBuildHelper("KavarzE", pokerhud.Raises, pokerhud.Preflop, 7, 0.45),
+				actionBuildHelper("RoMike2", pokerhud.Folds, pokerhud.Preflop, 8, 0),
+				actionBuildHelper("ThxWasOby3", pokerhud.Raises, pokerhud.Preflop, 9, 0.72),
+				actionBuildHelper("KavarzE", pokerhud.Calls, pokerhud.Preflop, 10, 0.72),
+				actionBuildHelper("KavarzE", pokerhud.Checks, pokerhud.Flop, 11, 0),
+				actionBuildHelper("ThxWasOby3", pokerhud.Checks, pokerhud.Flop, 12, 0),
+				actionBuildHelper("KavarzE", pokerhud.Bets, pokerhud.Turn, 13, 1.81),
+				actionBuildHelper("ThxWasOby3", pokerhud.Raises, pokerhud.Turn, 14, 2.09),
+				actionBuildHelper("KavarzE", pokerhud.Calls, pokerhud.Turn, 15, 2.09),
+			},
+			HeroCards: "Jc Js",
 		}
 
 		assertHand(t, got, want)
@@ -376,8 +436,6 @@ Seat 4: arsad725 folded before Flop (didn't bet)
 Seat 5: RE0309 folded on the Flop
 Seat 6: pernadao1599 showed [Jh Qc] and won ($0.89) with a pair of Jacks`
 
-
-
 const runItTwice string = `PokerStars Zoom Hand #254607988518:  Hold'em No Limit ($0.02/$0.05) - 2025/01/29 16:30:35 WET [2025/01/29 11:30:35 ET]
 Table 'Donati' 6-max Seat #1 is the button
 Seat 1: TurivVB240492 ($1.94 in chips)
@@ -425,4 +483,140 @@ Seat 2: KavarzE (small blind) showed [Jc Js] and won ($5.03) with three of a kin
 Seat 3: RoMike2 (big blind) folded before Flop
 Seat 4: hiroakin folded before Flop (didn't bet)
 Seat 5: ThxWasOby3 showed [Ah Qd] and lost with high card Ace, and won ($5.02) with a flush, Ace high
-Seat 6: VLSALT folded before Flop (didn't bet)` 
+Seat 6: VLSALT folded before Flop (didn't bet)`
+
+const brokenHandData string = `PokerStars Zoom Hand #254607988518:  Hold'em No Limit ($0.02/$0.05) - 2025/01/29 16:30:35 WET [2025/01/29 11:30:35 ET]
+Table 'Donati' 6-max Seat #1 is the button
+Seat 1: TurivVB240492 ($1.94 in chips)
+Seat 2: KavarzE ($15.14 in chips)
+Seat 3: RoMike2 ($5.07 in chips)
+Seat 4: hiroakin ($5 in chips)
+Seat 5: ThxWasOby3 ($5.22 in chips)
+Seat 6: VLSALT ($5 in chips)
+KavarzE: posts small blind $0.02
+RoMike2: posts big blind $0.05
+*** HOLE CARDS ***
+Dealt to KavarzE [Jc Js]
+hiroakin: folds
+ThxWasOby3: raises $0.10 to $0.15
+VLSALT: folds
+TurivVB240492: folds
+KavarzE: raises $0.45 to $0.60
+RoMike2: folds
+ThxWasOby3: raises $0.72 to $1.32
+KavarzE: calls $0.72
+*** FLOP *** [7d 2h 8h]
+KavarzE: checks
+ThxWasOby3: checks
+*** TURN *** [7d 2h 8h] [Jh]
+KavarzE: bets $1.81
+ThxWasOby3: raises $2.09 to $3.90 and is all-in
+KavarzE: calls $2.09
+*** FIRST RIVER *** [7d 2h 8h Jh] [3d]
+*** SECOND RIVER *** [7d 2h 8h Jh] [Qh]
+*** FIRST SHOW DOWN ***
+KavarzE: shows [Jc Js] (three of a kind, Jacks)
+ThxWasOby3: shows [Ah Qd] (high card Ace)
+KavarzE collected $5.03 from pot
+*** SECOND SHOW DOWN ***
+KavarzE: shows [Jc Js] (three of a kind, Jacks)
+ThxWasOby3: shows [Ah Qd] (a flush, Ace high)
+ThxWasOby3 collected $5.02 from pot
+*** SUMMARY ***
+Total pot $10.49 | Rake $0.44
+Hand was run twice
+FIRST Board [7d 2h 8h Jh 3d]
+SECOND Board [7d 2h 8h Jh Qh]
+Seat 1: TurivVB240492 (button) folded before Flop (didn't bet)
+Seat 2: KavarzE (small blind) showed [Jc Js] and won ($5.03) with three of a kind, Jacks, and lost with three of a kind, Jacks
+Seat 3: RoMike2 (big blind) folded before Flop
+Seat 4: hiroakin folded before Flop (didn't bet)
+Seat 5: ThxWasOby3 showed [Ah Qd] and lost with high card Ace, and won ($5.02) with a flush, Ace high
+Seat 6: VLSALT folded before Flop (didn't bet)
+
+
+
+Pokerstars broken hand with bad data somehow...
+Table 'Euphemia II' 6-max (Play Money) Seat #4 is the button
+Seat 1: adevlupec (53600 in chips) 
+Seat 2: Dette32 (10745 in chips) 
+Seat 3: Drug08 (9586 in chips) 
+Seat 4: FluffyStutt (11276 in chips) 
+yanksea will be allowed to play after the button
+adevlupec: posts small blind 50
+Dette32: posts big blind 100
+*** HOLE CARDS ***
+Dealt to FluffyStutt [8s Qc]
+Drug08: calls 100
+FluffyStutt: calls 100
+adevlupec: folds 
+Dette32: checks 
+*** FLOP *** [8c Qh 4c]
+Dette32: checks 
+Drug08: checks 
+FluffyStutt: bets 332
+Dette32: folds 
+Drug08: calls 332
+*** TURN *** [8c Qh 4c] [Ac]
+Drug08: checks 
+FluffyStutt: bets 963
+Drug08: calls 963
+*** RIVER *** [8c Qh 4c Ac] [Td]
+Drug08: checks 
+FluffyStutt: bets 9881 and is all-in
+Drug08: folds 
+Uncalled bet (9881) returned to FluffyStutt
+FluffyStutt collected 2793 from pot
+FluffyStutt: doesn't show hand 
+*** SUMMARY ***
+Total pot 2940 | Rake 147 
+Board [8c Qh 4c Ac Td]
+Seat 1: adevlupec (small blind) folded before Flop
+Seat 2: Dette32 (big blind) folded on the Flop
+Seat 3: Drug08 folded on the River
+Seat 4: FluffyStutt (button) collected (2793)
+
+
+
+PokerStars Hand #254446123323:  Hold'em No Limit ($0.02/$0.05 USD) - 2025/01/19 12:38:55 WET [2025/01/19 7:38:55 ET]
+Table 'Wei III' 6-max Seat #1 is the button
+Seat 1: maximoIV ($5.20 in chips)
+Seat 2: dlourencobss ($4.94 in chips)
+Seat 3: KavarzE ($5 in chips)
+Seat 4: arsad725 ($5.49 in chips)
+Seat 5: RE0309 ($4.63 in chips)
+Seat 6: pernadao1599 ($3.43 in chips)
+dlourencobss: posts small blind $0.02
+KavarzE: posts big blind $0.05
+*** HOLE CARDS ***
+Dealt to KavarzE [2s 5d]
+arsad725: folds
+RE0309: calls $0.05
+pernadao1599: calls $0.05
+maximoIV: folds
+dlourencobss: calls $0.03
+KavarzE: checks
+*** FLOP *** [2h Ts Jc]
+dlourencobss: bets $0.10
+KavarzE: folds
+RE0309: folds
+pernadao1599: calls $0.10
+*** TURN *** [2h Ts Jc] [3h]
+dlourencobss: bets $0.27
+pernadao1599: calls $0.27
+*** RIVER *** [2h Ts Jc 3h] [8c]
+dlourencobss: checks
+pernadao1599: checks
+*** SHOW DOWN ***
+dlourencobss: shows [8s 9s] (a pair of Eights)
+pernadao1599: shows [Jh Qc] (a pair of Jacks)
+pernadao1599 collected $0.89 from pot
+*** SUMMARY ***
+Total pot $0.94 | Rake $0.05
+Board [2h Ts Jc 3h 8c]
+Seat 1: maximoIV (button) folded before Flop (didn't bet)
+Seat 2: dlourencobss (small blind) showed [8s 9s] and lost with a pair of Eights
+Seat 3: KavarzE (big blind) folded on the Flop
+Seat 4: arsad725 folded before Flop (didn't bet)
+Seat 5: RE0309 folded on the Flop
+Seat 6: pernadao1599 showed [Jh Qc] and won ($0.89) with a pair of Jacks`

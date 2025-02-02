@@ -65,6 +65,14 @@ func CurrencyError(msg string) error {
 	return fmt.Errorf("%w: %s", errNoCurrency, msg)
 }
 
+func NoHandIDError(msg string) error {
+	return fmt.Errorf("%s: %w", msg, ErrNoHandID)
+}
+
+func NoActionError(msg string) error {
+	return fmt.Errorf("%w: %s", ErrNoAction, msg)
+}
+
 // Hand represents a hand of poker
 type Hand struct {
 	ID        string
@@ -95,7 +103,7 @@ type Player struct {
 }
 
 type handImport struct {
-	hands []Hand
+	hands    []Hand
 	handErrs []error
 }
 
@@ -127,7 +135,7 @@ func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, []error) {
 
 			if sessionFileErr != nil {
 				log.Println(sessionFileErr)
-			}		
+			}
 			allHandsChannel <- handImport{sessionHands, sessionFileErr}
 		}()
 	}
@@ -170,7 +178,7 @@ hands:
 		// Grab unique identifiers of hand
 		handID := handIDFromText(h)
 		if handID == "" {
-			errs = append(errs, ErrNoHandID)
+			errs = append(errs, NoHandIDError(fmt.Sprintf("in hand %v", h)))
 			continue hands
 		}
 		dateTime := parseDateTime(dateTimeStringFromHandText(h))
@@ -332,13 +340,14 @@ func heroCardsFromText(scanner *bufio.Scanner) string {
 
 func actionTypeFromText(scanner *bufio.Scanner) (ActionType, error) {
 	actionTypes := []ActionType{Posts, Folds, Checks, Bets, Calls, Raises}
+	line := scanner.Text()
 
 	for _, t := range actionTypes {
-		if strings.Contains(scanner.Text(), t.String()) {
+		if strings.Contains(line, t.String()) {
 			return t, nil
 		}
 	}
-	return "", ErrNoAction
+	return "", NoActionError(fmt.Sprintf("on line %v", line))
 }
 
 func actionPlayerNameFromText(scanner *bufio.Scanner) (string, error) {
@@ -350,7 +359,6 @@ func actionPlayerNameFromText(scanner *bufio.Scanner) (string, error) {
 }
 
 func actionAmountFromText(scanner *bufio.Scanner) (float64, error) {
-	// Strings.SplitN????
 	line := scanner.Text()
 
 	if strings.Contains(line, Dollar) && !strings.Contains(line, " to ") {
