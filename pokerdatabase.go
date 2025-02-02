@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -97,10 +96,7 @@ type Player struct {
 
 type handImport struct {
 	hands []Hand
-}
-
-type errorImport struct {
-	handErr []error
+	handErrs []error
 }
 
 func (t ActionType) String() string {
@@ -108,17 +104,17 @@ func (t ActionType) String() string {
 }
 
 // HandHistoryFromFS imports user hand history for the first time. Returns a slice of hands for insertion into the database.
-func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, error) {
+func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, []error) {
 	dir, err := fs.ReadDir(fileSystem, ".")
 	if err != nil {
-		return nil, errors.New("error reading file system")
+		return nil, []error{errors.New("error reading file system")}
 	}
 
 	var allHands []Hand
-	// var importErrs []error
+	var handErrs []error
 
 	allHandsChannel := make(chan handImport, len(dir))
-	// errorChannel := make(chan errorImport, len(dir))
+
 	defer close(allHandsChannel)
 
 	for _, f := range dir {
@@ -127,40 +123,30 @@ func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, error) {
 		// Count the number of duplicates...
 
 		go func() {
-
 			sessionHands, sessionFileErr := handsFromSessionFile(fileSystem, f.Name())
 
 			if sessionFileErr != nil {
 				log.Println(sessionFileErr)
-				// errorChannel <- errorImport{handErr: []error{sessionFileErr}}
-				return
-			}
-
-			allHandsChannel <- handImport{sessionHands}
+			}		
+			allHandsChannel <- handImport{sessionHands, sessionFileErr}
 		}()
 	}
 
 	for i := 0; i < len(dir); i++ {
 		h, _ := <-allHandsChannel
-		// e, _ := <-errorChannel
+
 		if h.hands != nil {
-			allHands = slices.Concat(allHands, h.hands)
+			allHands = append(allHands, h.hands...)
+			handErrs = append(handErrs, h.handErrs...)
 		}
-
-		// else {
-		// 	importErrs = slices.Concat(importErrs, e.handErr)
-		// }
 	}
-
-	// log.Printf("%v import errors\n", len(importErrs))
-
-	return allHands, nil
+	return allHands, handErrs
 }
 
-func handsFromSessionFile(filesystem fs.FS, filename string) ([]Hand, error) {
+func handsFromSessionFile(filesystem fs.FS, filename string) ([]Hand, []error) {
 	handData, err := fs.ReadFile(filesystem, filename)
 	if err != nil {
-		return nil, err
+		return nil, []error{err}
 	}
 	hands, parseErr := parseHandData(handData)
 
@@ -168,21 +154,24 @@ func handsFromSessionFile(filesystem fs.FS, filename string) ([]Hand, error) {
 		log.Println(parseErr)
 	}
 
-	return hands, nil
+	return hands, parseErr
 }
 
-func parseHandData(fileData []byte) ([]Hand, error) {
+func parseHandData(fileData []byte) ([]Hand, []error) {
 	sessionData := string(fileData)
 	handsText := strings.Split(sessionData, handInfoDelimiter)
 
 	var hands []Hand
+	var errs []error
 
+hands:
 	for _, h := range handsText {
 
 		// Grab unique identifiers of hand
 		handID := handIDFromText(h)
 		if handID == "" {
-			return nil, ErrNoHandID
+			errs = append(errs, ErrNoHandID)
+			continue hands
 		}
 		dateTime := parseDateTime(dateTimeStringFromHandText(h))
 
@@ -201,6 +190,8 @@ func parseHandData(fileData []byte) ([]Hand, error) {
 			actionResult, actionErr := ParseAndAppendActions(scanner, &street, actions, &order)
 			if actionErr != nil {
 				log.Println(actionErr)
+				errs = append(errs, actionErr)
+				continue hands
 			}
 			actions = actionResult
 		}
@@ -213,7 +204,7 @@ func parseHandData(fileData []byte) ([]Hand, error) {
 			Actions:   actions,
 		})
 	}
-	return hands, nil
+	return hands, errs
 }
 
 // ParseAndAppendActions builds an action from text data, and appends it to the existing Action slice before returning the now updated Action slice
@@ -298,9 +289,14 @@ func createHandScanner(h string) *bufio.Scanner {
 
 // Returns a hand Id string from the hand info string
 func handIDFromText(h string) string {
+	if !strings.Contains(h, "Hand #") {
+		return ""
+	}
+
 	if strings.Contains(h, ":") {
 		return strings.Split(strings.Split(h, ":")[0], "#")[1]
 	}
+
 	return ""
 }
 

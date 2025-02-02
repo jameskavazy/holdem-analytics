@@ -17,10 +17,14 @@ func TestHandHistoriesFromFS(t *testing.T) {
 			"cash game.txt": {Data: []byte(cashGame1)},
 		}
 
-		handHistory, _ := pokerhud.HandHistoryFromFS(fileSystem)
+		handHistory, err := pokerhud.HandHistoryFromFS(fileSystem)
 
 		if len(handHistory) != 4 {
 			t.Errorf("wanted 4 hands, got %d", len(handHistory))
+		}
+
+		if err != nil {
+			t.Error("expected no errors but got one")
 		}
 	})
 
