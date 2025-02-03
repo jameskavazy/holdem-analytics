@@ -121,7 +121,7 @@ func TestHandHistoriesFromFS(t *testing.T) {
 		want := pokerhud.Hand{
 			ID:      "254446123323",
 			Date:    handTime.Local(),
-			Players: []pokerhud.Player{{"maximoIV"}, {"dlourencobss"}, {"KavarzE"}, {"arsad725"}, {"RE0309"}, {"pernadao1599"}},
+			Players: []pokerhud.Player{{"maximoIV", ""}, {"dlourencobss", "8s 9s"}, {"KavarzE", ""}, {"arsad725", ""}, {"RE0309", ""}, {"pernadao1599", "Jh Qc"}},
 			Actions: []pokerhud.Action{
 				actionBuildHelper("dlourencobss", pokerhud.Posts, pokerhud.Preflop, 1, 0.02),
 				actionBuildHelper("KavarzE", pokerhud.Posts, pokerhud.Preflop, 2, 0.05),
@@ -158,7 +158,7 @@ func TestHandHistoriesFromFS(t *testing.T) {
 		want := pokerhud.Hand{
 			ID:      "254607988518",
 			Date:    handTime.Local(),
-			Players: []pokerhud.Player{{"TurivVB240492"}, {"KavarzE"}, {"RoMike2"}, {"hiroakin"}, {"ThxWasOby3"}, {"VLSALT"}},
+			Players: []pokerhud.Player{{"TurivVB240492", ""}, {"KavarzE", "Jc Js"}, {"RoMike2", ""}, {"hiroakin", ""}, {"ThxWasOby3", "Ah Qd"}, {"VLSALT", ""}},
 			Actions: []pokerhud.Action{
 				actionBuildHelper("KavarzE", pokerhud.Posts, pokerhud.Preflop, 1, 0.02),
 				actionBuildHelper("RoMike2", pokerhud.Posts, pokerhud.Preflop, 2, 0.05),

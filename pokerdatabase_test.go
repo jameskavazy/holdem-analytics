@@ -155,7 +155,7 @@ KavarzE: bets $2.33`)},
 
 		want := []Hand{
 			{
-				"123", time.Time{}.Local(), []Player{{Username: "test"}, {Username: "test2"}}, "Ad Ac", []Action{
+				"123", time.Time{}.Local(), []Player(nil), "Ad Ac", []Action{
 					{Player{Username: "KavarzE"}, 1, Preflop, Bets, 2.33},
 				},
 				nil,
@@ -195,7 +195,7 @@ KavarzE: bets $2.33`)
 		got, _ := parseHandData(handData)
 		want := []Hand{
 			{
-				"123", time.Time{}.Local(), []Player{{Username: "test"}, {Username: "test2"}}, "Ad Ac", []Action{{Player{Username: "KavarzE"}, 1, Preflop, Bets, 2.33}}, nil,
+				"123", time.Time{}.Local(), []Player(nil), "Ad Ac", []Action{{Player{Username: "KavarzE"}, 1, Preflop, Bets, 2.33}}, nil,
 			},
 		}
 
@@ -269,8 +269,8 @@ func TestHandIdFromText(t *testing.T) {
 
 func TestParseAction(t *testing.T) {
 	dummyActions := []Action{
-		{Player{"Kavarz"}, 2, Flop, Bets, 3},
-		{Player{"Burty"}, 3, Flop, Calls, 3},
+		{Player{"Kavarz", ""}, 2, Flop, Bets, 3},
+		{Player{"Burty", ""}, 3, Flop, Calls, 3},
 	}
 	var dummyStreet = Flop
 	order := 4
@@ -284,9 +284,9 @@ func TestParseAction(t *testing.T) {
 	}
 
 	want := []Action{
-		{Player{"Kavarz"}, 2, Flop, Bets, 3},
-		{Player{"Burty"}, 3, Flop, Calls, 3},
-		{Player{"kv_def"}, 4, Flop, Calls, 3},
+		{Player{"Kavarz", ""}, 2, Flop, Bets, 3},
+		{Player{"Burty", ""}, 3, Flop, Calls, 3},
+		{Player{"kv_def", ""}, 4, Flop, Calls, 3},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("wanted %#v but got %#v", want, got)
@@ -332,6 +332,37 @@ func TestParseDateTime(t *testing.T) {
 
 }
 
+func TestPlayerCardsFromText(t *testing.T) {
+	cases := []struct {
+		test string
+		want Player
+	}{
+		{`Seat 2: KavarzE (small blind) showed [Jc Js] and won ($5.03) with three of a kind, Jacks, and lost with three of a kind, Jacks`, Player{"KavarzE", "Jc Js"}},
+		{`Seat 5: ThxWasOby3 showed [Ah Qd] and lost with high card Ace, and won ($5.02) with a flush, Ace high`, Player{"ThxWasOby3", "Ah Qd"}},
+		{`Seat 6: KavarzE mucked [6s 6d]`, Player{"KavarzE", "6s 6d"}},
+		{`Seat 5: ilbeback2017 showed [Tc Td] and won ($1.37) with a pair of Tens`, Player{"ilbeback2017", "Tc Td"}},
+		{`Seat 1: acsy797 (button) mucked [Jd Ks]`, Player{"acsy797", "Jd Ks"}},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.test, func(t *testing.T) {
+
+			var prefix string
+			if strings.Contains(tt.test, "showed [") {
+				prefix = "showed ["
+			}
+			if strings.Contains(tt.test, "mucked ["){
+				prefix = "mucked ["
+			}
+			got := parsePlayerInfo(tt.test, prefix)
+
+			if got != tt.want {
+				t.Errorf("got %v but we wanted %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func testingScanner(handData string) *bufio.Scanner {
 	scanner := bufio.NewScanner(strings.NewReader(handData))
 	scanner.Scan()
@@ -343,23 +374,6 @@ type failingFS struct{}
 func (f failingFS) Open(name string) (fs.File, error) {
 	return nil, errors.New("oh no i always fail")
 }
-
-// func actionBuildHelper(player string, actionType ActionType, street Street, order int, amount float64) Action {
-// 	return Action{
-// 		Player:     player,
-// 		ActionType: actionType,
-// 		Street:     street,
-// 		Order:      order,
-// 		Amount:     amount,
-// 	}
-// }
-
-// func TestStreetActionFromText(t *testing.T) {
-// 	cases := map[string]string{
-
-// 	}
-
-// }
 
 // const testHands string = `PokerStars Zoom Hand #254489598204:  Hold'em No Limit ($0.02/$0.05) - 2025/01/21 20:51:32 WET [2025/01/21 15:51:32 ET]
 // Table 'Donati' 6-max Seat #1 is the button
@@ -408,7 +422,6 @@ func (f failingFS) Open(name string) (fs.File, error) {
 // SyraXmaX: folds
 // KavarzE: folds
 // getaddicted: folds`
-
 
 const brokenHands string = `PokerStars Hand #174088855475:  Hold'em No Limit (50/100) - 2017/08/08 23:16:30 MSK [2017/08/08 16:16:30 ET]
 Table 'Euphemia II' 6-max (Play Money) Seat #3 is the button

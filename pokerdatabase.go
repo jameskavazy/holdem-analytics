@@ -101,6 +101,7 @@ type ActionType string
 // Player - a player in the hand
 type Player struct {
 	Username string
+	Cards    string
 }
 
 type handImport struct {
@@ -183,10 +184,10 @@ hands:
 			continue hands
 		}
 		dateTime := parseDateTime(dateTimeStringFromHandText(h))
-
+		
 		// Loop through and append remaining data
 		scanner := createHandScanner(h)
-		var playerNames []Player
+		var players []Player 
 		var actions []Action
 		var heroCards string
 		var street = Preflop
@@ -194,8 +195,7 @@ hands:
 		var board []string = parseCommunityCards(h)
 
 		for scanner.Scan() {
-
-			playerNames = updatePlayerNames(scanner, playerNames)
+			// playerNames = updatePlayerNames(scanner, playerNames)
 			heroCards = setHeroCards(scanner, heroCards)
 			actionResult, actionErr := ParseAndAppendActions(scanner, &street, actions, &order)
 			if actionErr != nil {
@@ -204,14 +204,18 @@ hands:
 				continue hands
 			}
 			actions = actionResult
+
+			if playersFound, found := playersFromText(scanner); found {
+				players = append(players, playersFound)
+			}
 		}
 
 		hands = append(hands, Hand{
-			ID:        handID,
-			Date:      dateTime,
-			Players:   playerNames,
-			HeroCards: heroCards,
-			Actions:   actions,
+			ID:             handID,
+			Date:           dateTime,
+			Players:        players,
+			HeroCards:      heroCards,
+			Actions:        actions,
 			CommunityCards: board,
 		})
 	}
@@ -412,10 +416,10 @@ func parseDateTime(timeString string) time.Time {
 
 func parseCommunityCards(handText string) []string {
 	if strings.Contains(handText, "Hand was run twice") {
-		firstBoard := strings.Split(strings.Split(handText, "FIRST Board [")[1], "]")[0] 
+		firstBoard := strings.Split(strings.Split(handText, "FIRST Board [")[1], "]")[0]
 		secondBoard := strings.Split(strings.Split(handText, "SECOND Board [")[1], "]")[0]
 		return []string{firstBoard, secondBoard}
-	}	
+	}
 	if strings.Contains(handText, "Board [") {
 		board := strings.Split(strings.Split(handText, "Board [")[1], "]")[0]
 		return []string{board}
@@ -423,4 +427,40 @@ func parseCommunityCards(handText string) []string {
 	return nil
 }
 
+func playersFromText(scanner *bufio.Scanner) (Player, bool) {
+	line := scanner.Text()
+	if strings.Contains(line, "showed [") {
+		return parsePlayerInfo(line, "showed ["), true
+	} 
 
+	if strings.Contains(line, "mucked [") {
+		return parsePlayerInfo(line, "mucked ["), true
+	}
+
+	if strings.Contains(line, "folded") {
+		return parsePlayerInfo(line, ""), true
+	}
+
+	return Player{}, false
+}
+
+
+func parsePlayerInfo(line string, cardPrefix string) (Player) {
+	var playerName string
+	var cards string
+
+	if cardPrefix != "" {
+		splitLine := strings.Split(line, cardPrefix)
+		prefixWithPlayerName := splitLine[0]
+		playerName = strings.Fields(prefixWithPlayerName)[2]
+		cards = strings.Split(splitLine[1], "]")[0]
+	} else {
+		playerName = strings.Fields(line)[2]
+		cards = ""
+	}
+
+	return Player{
+		Username: playerName,
+		Cards:    cards,
+	}
+}
