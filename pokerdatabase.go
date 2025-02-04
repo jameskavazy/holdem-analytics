@@ -6,20 +6,17 @@ package pokerhud
 
 // // We'd need some kind of continual running to scan the FS for new hand files and keep reading from the same particular one.
 // func GetHandsWhilePlaying() {
-//     //TODO - detect latest file in HH fs. Open file & parse changes to it?
+//     TODO - detect latest file in HH fs. Open file & parse changes to it?
 // }
-
-// TODO - Add waitgroups, goroutines and chans for concurrent file parsing...
-//
 
 import (
 	"bufio"
 	"errors"
 	"fmt"
 	"io/fs"
-	"log"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -57,12 +54,12 @@ const (
 var (
 	ErrNoAction   = errors.New("error no action found on text line")
 	ErrNoHandID   = errors.New("error no hand ID was found, unable parse. ignoring hand")
-	errNoCurrency = errors.New("error parsing Action.Amount, expected currency'")
+	ErrNoCurrency = errors.New("error parsing Action.Amount, expected currency'")
 )
 
 // CurrencyError formats sends an error accepting a msg to provide further information about causation
 func CurrencyError(msg string) error {
-	return fmt.Errorf("%w: %s", errNoCurrency, msg)
+	return fmt.Errorf("%w: %s", ErrNoCurrency, msg)
 }
 
 func NoHandIDError(msg string) error {
@@ -78,7 +75,6 @@ type Hand struct {
 	ID             string
 	Date           time.Time
 	Players        []Player
-	HeroCards      string
 	Actions        []Action
 	CommunityCards []string
 }
@@ -113,6 +109,17 @@ func (t ActionType) String() string {
 	return string(t)
 }
 
+func (s *Street) Next(line string) {
+	switch {
+	case strings.Contains(line, flopSignifier):
+		*s = Flop
+	case strings.Contains(line, turnSignifier):
+		*s = Turn
+	case strings.Contains(line, riverSignifier):
+		*s = River
+	}
+}
+
 // HandHistoryFromFS imports user hand history for the first time. Returns a slice of hands for insertion into the database.
 func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, []error) {
 	dir, err := fs.ReadDir(fileSystem, ".")
@@ -126,21 +133,24 @@ func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, []error) {
 	allHandsChannel := make(chan handImport, len(dir))
 
 	defer close(allHandsChannel)
+	var wg sync.WaitGroup
 
-	for _, f := range dir {
+	for _, file := range dir {
+		wg.Add(1)
 		// TODO - move file once processed... also some sort of logic that works out once whole file is read to move it? Get Hands While Playing...
 		// Count handErrs so we can tell the user X amount of hands errors
 		// Count the number of duplicates...
 
-		go func() {
-			sessionHands, sessionFileErr := handsFromSessionFile(fileSystem, f.Name())
-
-			if sessionFileErr != nil {
-				log.Println(sessionFileErr)
-			}
+		go func(file fs.DirEntry) {
+			defer wg.Done()
+			sessionHands, sessionFileErr := handsFromSessionFile(fileSystem, file.Name())
 			allHandsChannel <- handImport{sessionHands, sessionFileErr}
-		}()
+			//TODO move file.
+		}(file)
 	}
+
+	wg.Wait()
+
 
 	for i := 0; i < len(dir); i++ {
 		h, _ := <-allHandsChannel
@@ -159,11 +169,6 @@ func handsFromSessionFile(filesystem fs.FS, filename string) ([]Hand, []error) {
 		return nil, []error{err}
 	}
 	hands, parseErr := parseHandData(handData)
-
-	if parseErr != nil {
-		log.Println(parseErr)
-	}
-
 	return hands, parseErr
 }
 
@@ -175,37 +180,37 @@ func parseHandData(fileData []byte) ([]Hand, []error) {
 	var errs []error
 
 hands:
-	for _, h := range handsText {
+	for _, handText := range handsText {
 
-		// Grab unique identifiers of hand
-		handID := handIDFromText(h)
+		// One shot data - grab unique identifiers of hand
+		handID := handIDFromText(handText)
 		if handID == "" {
-			shortHand := ellipsis(h, 100)
+			shortHand := ellipsis(handText, 100)
 			errs = append(errs, NoHandIDError(fmt.Sprintf("in hand %v", shortHand)))
 			continue hands
 		}
-		dateTime := parseDateTime(dateTimeStringFromHandText(h))
-		
+		dateTime := parseDateTime(dateTimeStringFromHandText(handText))
+
 		// Loop through and append remaining data
-		scanner := createHandScanner(h)
-		var players []Player 
+		scanner := createHandScanner(handText)
+
+		var players []Player
 		var actions []Action
-		var heroCards string
 		var street = Preflop
 		var order = 1
-		var board []string = parseCommunityCards(h)
+		var board []string = parseCommunityCards(handText)
 
 		for scanner.Scan() {
-			heroCards = setHeroCards(scanner, heroCards)
-			actionResult, actionErr := ParseAndAppendActions(scanner, &street, actions, &order)
+			line := scanner.Text()
+
+			actionResult, actionErr := ParseAndAppendActions(line, &street, actions, &order)
 			if actionErr != nil {
-				log.Println(actionErr)
 				errs = append(errs, actionErr)
 				continue hands
 			}
 			actions = actionResult
 
-			if playersFound, found := playersFromText(scanner); found {
+			if playersFound, found := playersFromText(line); found {
 				players = append(players, playersFound)
 			}
 		}
@@ -214,7 +219,6 @@ hands:
 			ID:             handID,
 			Date:           dateTime,
 			Players:        players,
-			HeroCards:      heroCards,
 			Actions:        actions,
 			CommunityCards: board,
 		})
@@ -223,11 +227,11 @@ hands:
 }
 
 // ParseAndAppendActions builds an action from text data, and appends it to the existing Action slice before returning the now updated Action slice
-func ParseAndAppendActions(scanner *bufio.Scanner, street *Street, actions []Action, order *int) ([]Action, error) {
-	getStreetFromText(scanner, street)
-	updatedActions, err := parseAction(scanner, actions, street, order)
+func ParseAndAppendActions(line string, street *Street, actions []Action, order *int) ([]Action, error) {
+	street.Next(line)
+	updatedActions, err := parseAction(line, actions, street, order)
 	if err != nil {
-		if !errors.Is(err, ErrNoAction) || !errors.Is(err, errNoCurrency) {
+		if !errors.Is(err, ErrNoAction) || !errors.Is(err, ErrNoCurrency) {
 			return updatedActions, err
 		}
 		return updatedActions, nil
@@ -235,8 +239,8 @@ func ParseAndAppendActions(scanner *bufio.Scanner, street *Street, actions []Act
 	return updatedActions, nil
 }
 
-func parseAction(scanner *bufio.Scanner, actions []Action, actionStreet *Street, order *int) ([]Action, error) {
-	actionType, err := actionTypeFromText(scanner)
+func parseAction(line string, actions []Action, actionStreet *Street, order *int) ([]Action, error) {
+	actionType, err := actionTypeFromText(line)
 
 	if errors.Is(err, ErrNoAction) {
 		return actions, nil
@@ -246,12 +250,10 @@ func parseAction(scanner *bufio.Scanner, actions []Action, actionStreet *Street,
 		return actions, err
 	}
 
-	playerName, err := actionPlayerNameFromText(scanner)
+	playerName, err := actionPlayerNameFromText(line)
 	if err == nil {
-		amount, amountErr := actionAmountFromText(scanner)
-		if amountErr != nil {
-			log.Println(amountErr)
-		}
+		amount, _ := actionAmountFromText(line)
+
 		actions = append(actions, Action{
 			ActionType: actionType,
 			Player: Player{
@@ -262,39 +264,10 @@ func parseAction(scanner *bufio.Scanner, actions []Action, actionStreet *Street,
 			Amount: amount,
 		})
 	}
-	*order++
+	(*order)++
 
 	return actions, nil
 }
-
-func getStreetFromText(scanner *bufio.Scanner, actionStreet *Street) {
-	switch {
-	case strings.Contains(scanner.Text(), flopSignifier):
-		*actionStreet = Flop
-	case strings.Contains(scanner.Text(), turnSignifier):
-		*actionStreet = Turn
-	case strings.Contains(scanner.Text(), riverSignifier):
-		*actionStreet = River
-	}
-}
-
-func setHeroCards(scanner *bufio.Scanner, heroCards string) string {
-	if heroCardsFromText(scanner) != "" {
-		heroCards = heroCardsFromText(scanner)
-	}
-	return heroCards
-}
-
-// Extracts player name and updates playerNames slice for the Hand. If unable to extract a playername, the original playerNames slice is returned.
-// func updatePlayerNames(scanner *bufio.Scanner, playerNames []Player) []Player {
-// 	nameFound := handPlayerNameFromText(scanner)
-// 	if nameFound != "" {
-// 		playerNames = append(playerNames, Player{
-// 			Username: nameFound,
-// 		})
-// 	}
-// 	return playerNames
-// }
 
 // Returns a pointer to bufio.Scanner for parsing Hand data
 func createHandScanner(h string) *bufio.Scanner {
@@ -303,51 +276,20 @@ func createHandScanner(h string) *bufio.Scanner {
 }
 
 // Returns a hand Id string from the hand info string
-func handIDFromText(h string) string {
-	if !strings.Contains(h, "Hand #") {
+func handIDFromText(handText string) string {
+	if !strings.Contains(handText, "Hand #") {
 		return ""
 	}
 
-	if strings.Contains(h, ":") {
-		return strings.Split(strings.Split(h, ":")[0], "#")[1]
+	if strings.Contains(handText, ":") {
+		return substringBetween(handText, "#", ":")
 	}
 
 	return ""
 }
 
-// func handPlayerNameFromText(scanner *bufio.Scanner) string {
-// 	var playerName string
-// 	// Might need to pass in the street? because otherwise, there's Summary section that matches closely the same pattern
-// 	// TODO Refactor this -> doesn't seem robust e.g. start + 2 seems like asking for a panic
-// 	if strings.Contains(scanner.Text(), "Seat ") && strings.Contains(scanner.Text(), "chips") {
-// 		start := strings.Index(scanner.Text(), ": ")
-// 		end := strings.Index(scanner.Text(), " (")
-
-// 		if start != -1 || end != -1 {
-// 			playerName = (scanner.Text()[start+2 : end])
-// 		}
-// 	}
-// 	return playerName
-// }
-
-func heroCardsFromText(scanner *bufio.Scanner) string {
-	var heroCards string
-
-	if strings.Contains(scanner.Text(), "Dealt to") {
-		start := strings.Index(scanner.Text(), "[")
-		end := strings.Index(scanner.Text(), "]")
-		if start != -1 && end != -1 {
-			heroCards = scanner.Text()[start+1 : end]
-			return heroCards
-		}
-	}
-
-	return heroCards
-}
-
-func actionTypeFromText(scanner *bufio.Scanner) (ActionType, error) {
+func actionTypeFromText(line string) (ActionType, error) {
 	actionTypes := []ActionType{Posts, Folds, Checks, Bets, Calls, Raises}
-	line := scanner.Text()
 
 	for _, t := range actionTypes {
 		if strings.Contains(line, t.String()) {
@@ -357,17 +299,15 @@ func actionTypeFromText(scanner *bufio.Scanner) (ActionType, error) {
 	return "", NoActionError(fmt.Sprintf("on line %v", line))
 }
 
-func actionPlayerNameFromText(scanner *bufio.Scanner) (string, error) {
-	if strings.Contains(scanner.Text(), ":") {
-		return strings.Split(scanner.Text(), ":")[0], nil
+func actionPlayerNameFromText(line string) (string, error) {
+	if strings.Contains(line, ":") {
+		return strings.Split(line, ":")[0], nil
 	}
 
 	return "", errors.New("couldn't find player name to parse")
 }
 
-func actionAmountFromText(scanner *bufio.Scanner) (float64, error) {
-	line := scanner.Text()
-
+func actionAmountFromText(line string) (float64, error) {
 	if strings.Contains(line, Dollar) && !strings.Contains(line, " to ") {
 		amount, err := strconv.ParseFloat((strings.Split(line, Dollar)[1]), 64)
 		if err != nil {
@@ -396,7 +336,7 @@ func dateTimeStringFromHandText(line string) string {
 
 	var timeString string
 	if strings.ContainsAny(line, "[]") {
-		timeString = strings.Split(strings.Split(line, "[")[1], " ET]")[0]
+		timeString = substringBetween(line, "[", " ET]")
 	}
 
 	formattedTimeString := strings.Map(func(r rune) rune {
@@ -416,22 +356,34 @@ func parseDateTime(timeString string) time.Time {
 
 func parseCommunityCards(handText string) []string {
 	if strings.Contains(handText, "Hand was run twice") {
-		firstBoard := strings.Split(strings.Split(handText, "FIRST Board [")[1], "]")[0]
-		secondBoard := strings.Split(strings.Split(handText, "SECOND Board [")[1], "]")[0]
+		firstBoard := parseBoardInfo(handText, "FIRST Board [", "]")
+		secondBoard := parseBoardInfo(handText, "SECOND Board [", "]")
 		return []string{firstBoard, secondBoard}
 	}
 	if strings.Contains(handText, "Board [") {
-		board := strings.Split(strings.Split(handText, "Board [")[1], "]")[0]
+		board := parseBoardInfo(handText, "Board [", "]")
 		return []string{board}
 	}
 	return nil
 }
 
-func playersFromText(scanner *bufio.Scanner) (Player, bool) {
-	line := scanner.Text()
+func parseBoardInfo(handText, boardStart, boardEnd string) string {
+	return substringBetween(handText, boardStart, boardEnd)
+}
+
+// Substring between returns the substring between the first instance of characters start and end.
+// If text does not contain the original text is returned unchanged
+func substringBetween(text, start, end string) string {
+	if !strings.Contains(text, start) || !strings.Contains(text, end) {
+		return text
+	}
+	return strings.Split(strings.Split(text, start)[1], end)[0]
+}
+
+func playersFromText(line string) (Player, bool) {
 	if strings.Contains(line, "showed [") {
 		return parsePlayerInfo(line, "showed ["), true
-	} 
+	}
 
 	if strings.Contains(line, "mucked [") {
 		return parsePlayerInfo(line, "mucked ["), true
@@ -444,8 +396,7 @@ func playersFromText(scanner *bufio.Scanner) (Player, bool) {
 	return Player{}, false
 }
 
-
-func parsePlayerInfo(line string, cardPrefix string) (Player) {
+func parsePlayerInfo(line string, cardPrefix string) Player {
 	var playerName string
 	var cards string
 
@@ -465,16 +416,15 @@ func parsePlayerInfo(line string, cardPrefix string) (Player) {
 	}
 }
 
-// Ellipsis truncates a given string by the max length of characters provided and appends with ellipsis. 
-// If the length of string is less than the maxLen the whole string is return untruncated 
-// Max length provided should be greater than 3
+// Ellipsis truncates a given string by the max length of characters provided and appends with ellipsis.
+// If the length of string is less than the maxLen the whole string is return untruncated.
 func ellipsis(s string, maxLen int) string {
-    runes := []rune(s)
-    if len(runes) <= maxLen {
-        return s
-    }
-    if maxLen < 3 {
-        maxLen = 3
-    }
-    return string(runes[0:maxLen-3]) + "..."
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	if maxLen < 3 {
+		maxLen = 3
+	}
+	return string(runes[0:maxLen-3]) + "..."
 }

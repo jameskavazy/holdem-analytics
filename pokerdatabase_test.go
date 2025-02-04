@@ -38,9 +38,7 @@ func TestActionTypeFromText(t *testing.T) {
 		fmt.Fprintf(&buffer, "Post Scenario: %v", c)
 
 		t.Run(buffer.String(), func(t *testing.T) {
-			scanner := createHandScanner(c)
-			scanner.Scan()
-			got, _ := actionTypeFromText(scanner)
+			got, _ := actionTypeFromText(c)
 			if got != want {
 				t.Errorf("got %v, but wanted %v", got, want)
 			}
@@ -73,9 +71,7 @@ func TestPlayerNameActionFromText(t *testing.T) {
 		fmt.Fprintf(&buffer, "Post Scenario: %v", c)
 
 		t.Run(buffer.String(), func(t *testing.T) {
-			scanner := createHandScanner(c)
-			scanner.Scan()
-			got, _ := actionPlayerNameFromText(scanner)
+			got, _ := actionPlayerNameFromText(c)
 			if got != want {
 				t.Errorf("got %v, but wanted %v", got, want)
 			}
@@ -110,9 +106,7 @@ func TestActionAmountFromText(t *testing.T) {
 			fmt.Fprintf(&buffer, "Scenario: %v", c)
 
 			t.Run(buffer.String(), func(t *testing.T) {
-				scanner := testingScanner(c)
-				got, _ := actionAmountFromText(scanner)
-
+				got, _ := actionAmountFromText(c)
 				if got != want {
 					t.Errorf("got %v, but wanted %v", got, want)
 				}
@@ -129,7 +123,7 @@ func TestActionAmountFromText(t *testing.T) {
 
 		for _, c := range cases {
 			t.Run(c, func(t *testing.T) {
-				_, err := actionAmountFromText(testingScanner(c))
+				_, err := actionAmountFromText(c)
 				want := CurrencyError(fmt.Sprintf("on line %v", c)).Error()
 
 				if err.Error() != want {
@@ -155,7 +149,7 @@ KavarzE: bets $2.33`)},
 
 		want := []Hand{
 			{
-				"123", time.Time{}.Local(), []Player(nil), "Ad Ac", []Action{
+				"123", time.Time{}.Local(), []Player(nil), []Action{
 					{Player{Username: "KavarzE"}, 1, Preflop, Bets, 2.33},
 				},
 				nil,
@@ -195,7 +189,7 @@ KavarzE: bets $2.33`)
 		got, _ := parseHandData(handData)
 		want := []Hand{
 			{
-				"123", time.Time{}.Local(), []Player(nil), "Ad Ac", []Action{{Player{Username: "KavarzE"}, 1, Preflop, Bets, 2.33}}, nil,
+				"123", time.Time{}.Local(), []Player(nil), []Action{{Player{Username: "KavarzE"}, 1, Preflop, Bets, 2.33}}, nil,
 			},
 		}
 
@@ -245,16 +239,15 @@ KavarzE: bets $2.33`)
 // 	}
 // }
 
-func TestSetHeroCards(t *testing.T) {
-	handData := "Dealt to Karv [Ac Kc]"
-	scanner := testingScanner(handData)
-	got := heroCardsFromText(scanner)
-	want := "Ac Kc"
+// func TestSetHeroCards(t *testing.T) {
+// 	handData := "Dealt to Karv [Ac Kc]"
+// 	got := heroCardsFromText(handData)
+// 	want := "Ac Kc"
 
-	if got != want {
-		t.Errorf("got %v wanted %v", got, want)
-	}
-}
+// 	if got != want {
+// 		t.Errorf("got %v wanted %v", got, want)
+// 	}
+// }
 
 func TestHandIdFromText(t *testing.T) {
 	handData := "Pokerstars Hand #6548679821301346841: Holdem don't care"
@@ -276,9 +269,8 @@ func TestParseAction(t *testing.T) {
 	order := 4
 
 	handData := "kv_def: calls $3"
-	scanner := testingScanner(handData)
 
-	got, err := parseAction(scanner, dummyActions, &dummyStreet, &order)
+	got, err := parseAction(handData, dummyActions, &dummyStreet, &order)
 	if err != nil {
 		t.Error(err)
 	}
