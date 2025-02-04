@@ -180,7 +180,8 @@ hands:
 		// Grab unique identifiers of hand
 		handID := handIDFromText(h)
 		if handID == "" {
-			errs = append(errs, NoHandIDError(fmt.Sprintf("in hand %v", h)))
+			shortHand := ellipsis(h, 100)
+			errs = append(errs, NoHandIDError(fmt.Sprintf("in hand %v", shortHand)))
 			continue hands
 		}
 		dateTime := parseDateTime(dateTimeStringFromHandText(h))
@@ -195,7 +196,6 @@ hands:
 		var board []string = parseCommunityCards(h)
 
 		for scanner.Scan() {
-			// playerNames = updatePlayerNames(scanner, playerNames)
 			heroCards = setHeroCards(scanner, heroCards)
 			actionResult, actionErr := ParseAndAppendActions(scanner, &street, actions, &order)
 			if actionErr != nil {
@@ -286,15 +286,15 @@ func setHeroCards(scanner *bufio.Scanner, heroCards string) string {
 }
 
 // Extracts player name and updates playerNames slice for the Hand. If unable to extract a playername, the original playerNames slice is returned.
-func updatePlayerNames(scanner *bufio.Scanner, playerNames []Player) []Player {
-	nameFound := handPlayerNameFromText(scanner)
-	if nameFound != "" {
-		playerNames = append(playerNames, Player{
-			Username: nameFound,
-		})
-	}
-	return playerNames
-}
+// func updatePlayerNames(scanner *bufio.Scanner, playerNames []Player) []Player {
+// 	nameFound := handPlayerNameFromText(scanner)
+// 	if nameFound != "" {
+// 		playerNames = append(playerNames, Player{
+// 			Username: nameFound,
+// 		})
+// 	}
+// 	return playerNames
+// }
 
 // Returns a pointer to bufio.Scanner for parsing Hand data
 func createHandScanner(h string) *bufio.Scanner {
@@ -315,20 +315,20 @@ func handIDFromText(h string) string {
 	return ""
 }
 
-func handPlayerNameFromText(scanner *bufio.Scanner) string {
-	var playerName string
-	// Might need to pass in the street? because otherwise, there's Summary section that matches closely the same pattern
-	// TODO Refactor this -> doesn't seem robust e.g. start + 2 seems like asking for a panic
-	if strings.Contains(scanner.Text(), "Seat ") && strings.Contains(scanner.Text(), "chips") {
-		start := strings.Index(scanner.Text(), ": ")
-		end := strings.Index(scanner.Text(), " (")
+// func handPlayerNameFromText(scanner *bufio.Scanner) string {
+// 	var playerName string
+// 	// Might need to pass in the street? because otherwise, there's Summary section that matches closely the same pattern
+// 	// TODO Refactor this -> doesn't seem robust e.g. start + 2 seems like asking for a panic
+// 	if strings.Contains(scanner.Text(), "Seat ") && strings.Contains(scanner.Text(), "chips") {
+// 		start := strings.Index(scanner.Text(), ": ")
+// 		end := strings.Index(scanner.Text(), " (")
 
-		if start != -1 || end != -1 {
-			playerName = (scanner.Text()[start+2 : end])
-		}
-	}
-	return playerName
-}
+// 		if start != -1 || end != -1 {
+// 			playerName = (scanner.Text()[start+2 : end])
+// 		}
+// 	}
+// 	return playerName
+// }
 
 func heroCardsFromText(scanner *bufio.Scanner) string {
 	var heroCards string
@@ -463,4 +463,18 @@ func parsePlayerInfo(line string, cardPrefix string) (Player) {
 		Username: playerName,
 		Cards:    cards,
 	}
+}
+
+// Ellipsis truncates a given string by the max length of characters provided and appends with ellipsis. 
+// If the length of string is less than the maxLen the whole string is return untruncated 
+// Max length provided should be greater than 3
+func ellipsis(s string, maxLen int) string {
+    runes := []rune(s)
+    if len(runes) <= maxLen {
+        return s
+    }
+    if maxLen < 3 {
+        maxLen = 3
+    }
+    return string(runes[0:maxLen-3]) + "..."
 }

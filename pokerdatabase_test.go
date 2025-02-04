@@ -234,16 +234,16 @@ KavarzE: bets $2.33`)
 	})
 }
 
-func TestHandPlayerNames(t *testing.T) {
-	handData := "Seat 2: test2 ($3000 in chips)"
-	scanner := testingScanner(handData)
-	got := handPlayerNameFromText(scanner)
-	want := "test2"
+// func TestHandPlayerNames(t *testing.T) {
+// 	handData := "Seat 2: test2 ($3000 in chips)"
+// 	scanner := testingScanner(handData)
+// 	got := handPlayerNameFromText(scanner)
+// 	want := "test2"
 
-	if got != want {
-		t.Errorf("got %v wanted %v", got, want)
-	}
-}
+// 	if got != want {
+// 		t.Errorf("got %v wanted %v", got, want)
+// 	}
+// }
 
 func TestSetHeroCards(t *testing.T) {
 	handData := "Dealt to Karv [Ac Kc]"
