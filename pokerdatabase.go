@@ -16,7 +16,6 @@ import (
 	"io/fs"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -53,7 +52,7 @@ const (
 // Global Errs
 var (
 	ErrNoAction   = errors.New("error no action found on text line")
-	ErrNoHandID   = errors.New("error no hand ID was found, unable parse. ignoring hand")
+	ErrNoHandID   = errors.New("error no hand ID was found, unable parse. ignoring hand") // TODO: Perhaps make this a struct & add the file, hand info and error to struct.
 	ErrNoCurrency = errors.New("error parsing Action.Amount, expected currency'")
 )
 
@@ -133,23 +132,18 @@ func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, []error) {
 	allHandsChannel := make(chan handImport, len(dir))
 
 	defer close(allHandsChannel)
-	var wg sync.WaitGroup
 
 	for _, file := range dir {
-		wg.Add(1)
 		// TODO - move file once processed... also some sort of logic that works out once whole file is read to move it? Get Hands While Playing...
 		// Count handErrs so we can tell the user X amount of hands errors
 		// Count the number of duplicates...
 
-		go func(file fs.DirEntry) {
-			defer wg.Done()
+		go func() {
 			sessionHands, sessionFileErr := handsFromSessionFile(fileSystem, file.Name())
 			allHandsChannel <- handImport{sessionHands, sessionFileErr}
-			//TODO move file.
-		}(file)
-	}
 
-	wg.Wait()
+		}()
+	}
 
 
 	for i := 0; i < len(dir); i++ {
@@ -179,40 +173,18 @@ func parseHandData(fileData []byte) ([]Hand, []error) {
 	var hands []Hand
 	var errs []error
 
-hands:
 	for _, handText := range handsText {
 
-		// One shot data - grab unique identifiers of hand
-		handID := handIDFromText(handText)
-		if handID == "" {
-			shortHand := ellipsis(handText, 100)
-			errs = append(errs, NoHandIDError(fmt.Sprintf("in hand %v", shortHand)))
-			continue hands
+		handID, dateTime, board, infoErr := summaryInfoFromText(handText)
+		if infoErr != nil {
+			errs = append(errs, infoErr)
+			continue // the hand lacks crucial metadata - skip on
 		}
-		dateTime := parseDateTime(dateTimeStringFromHandText(handText))
 
-		// Loop through and append remaining data
-		scanner := createHandScanner(handText)
-
-		var players []Player
-		var actions []Action
-		var street = Preflop
-		var order = 1
-		var board []string = parseCommunityCards(handText)
-
-		for scanner.Scan() {
-			line := scanner.Text()
-
-			actionResult, actionErr := ParseAndAppendActions(line, &street, actions, &order)
-			if actionErr != nil {
-				errs = append(errs, actionErr)
-				continue hands
-			}
-			actions = actionResult
-
-			if playersFound, found := playersFromText(line); found {
-				players = append(players, playersFound)
-			}
+		players, actions, actionErr := actionsFromText(handText)
+		if actionErr != nil {
+			errs = append(errs, actionErr)
+			continue // the hand lacks crucial gameplay info - skip on
 		}
 
 		hands = append(hands, Hand{
@@ -250,8 +222,9 @@ func parseAction(line string, actions []Action, actionStreet *Street, order *int
 		return actions, err
 	}
 
-	playerName, err := actionPlayerNameFromText(line)
-	if err == nil {
+	// TODO - add player struct to the action rather than just the player name?
+	playerName, ok := actionPlayerNameFromText(line)
+	if ok {
 		amount, _ := actionAmountFromText(line)
 
 		actions = append(actions, Action{
@@ -263,9 +236,8 @@ func parseAction(line string, actions []Action, actionStreet *Street, order *int
 			Order:  *order,
 			Amount: amount,
 		})
+		(*order)++
 	}
-	(*order)++
-
 	return actions, nil
 }
 
@@ -299,12 +271,11 @@ func actionTypeFromText(line string) (ActionType, error) {
 	return "", NoActionError(fmt.Sprintf("on line %v", line))
 }
 
-func actionPlayerNameFromText(line string) (string, error) {
+func actionPlayerNameFromText(line string) (string, bool) {
 	if strings.Contains(line, ":") {
-		return strings.Split(line, ":")[0], nil
+		return strings.Split(line, ":")[0], true
 	}
-
-	return "", errors.New("couldn't find player name to parse")
+	return "", false
 }
 
 func actionAmountFromText(line string) (float64, error) {
@@ -427,4 +398,42 @@ func ellipsis(s string, maxLen int) string {
 		maxLen = 3
 	}
 	return string(runes[0:maxLen-3]) + "..."
+}
+
+func summaryInfoFromText(handText string) (handID string, dateTime time.Time, board []string, err error) {
+	handID = handIDFromText(handText)
+	if handID == "" {
+		shortHand := ellipsis(handText, 100) // Truncate hand info for error
+		err = NoHandIDError(fmt.Sprintf("in hand %v", shortHand))
+	}
+	dateTime = parseDateTime(dateTimeStringFromHandText(handText))
+	board = parseCommunityCards(handText)
+	return
+}
+
+func actionsFromText(handText string) ([]Player, []Action, error) {
+
+	var players []Player
+	var actions []Action
+	var street Street = Preflop
+	var order = 1
+
+	scanner := createHandScanner(handText)
+
+	//TODO cleaning this up...
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		actionResult, actionErr := ParseAndAppendActions(line, &street, actions, &order)
+		if actionErr != nil {
+			return nil, nil, actionErr
+		}
+
+		actions = actionResult
+
+		if playersFound, ok := playersFromText(line); ok {
+			players = append(players, playersFound)
+		}
+	}
+	return players, actions, nil
 }
