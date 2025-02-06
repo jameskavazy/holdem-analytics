@@ -71,7 +71,12 @@ func TestPlayerNameActionFromText(t *testing.T) {
 		fmt.Fprintf(&buffer, "Post Scenario: %v", c)
 
 		t.Run(buffer.String(), func(t *testing.T) {
-			got, _ := actionPlayerNameFromText(c)
+			got, err := actionPlayerNameFromText(c)
+
+			if err != nil {
+				t.Error("failed to parse name but should have")
+			}
+
 			if got != want {
 				t.Errorf("got %v, but wanted %v", got, want)
 			}
@@ -343,7 +348,7 @@ func TestPlayerCardsFromText(t *testing.T) {
 			if strings.Contains(tt.test, "showed [") {
 				prefix = "showed ["
 			}
-			if strings.Contains(tt.test, "mucked ["){
+			if strings.Contains(tt.test, "mucked [") {
 				prefix = "mucked ["
 			}
 			got := parsePlayerInfo(tt.test, prefix)
@@ -415,126 +420,108 @@ func (f failingFS) Open(name string) (fs.File, error) {
 // KavarzE: folds
 // getaddicted: folds`
 
-const brokenHands string = `PokerStars Hand #174088855475:  Hold'em No Limit (50/100) - 2017/08/08 23:16:30 MSK [2017/08/08 16:16:30 ET]
-Table 'Euphemia II' 6-max (Play Money) Seat #3 is the button
-Seat 1: adevlupec (53368 in chips) 
-Seat 2: Dette32 (10845 in chips) 
-Seat 3: Drug08 (9686 in chips) 
-Seat 4: FluffyStutt (11326 in chips) 
-FluffyStutt: posts small blind 50
-adevlupec: posts big blind 100
+const brokenHands string = `PokerStars Zoom Hand #254671589924:  Hold'em No Limit ($0.02/$0.05) - 2025/02/02 16:57:48 WET [2025/02/02 11:57:48 ET]
+Table 'Donati' 6-max Seat #1 is the button
+Seat 1: KavarzE ($5 in chips) 
+Seat 2: Zwenni24 ($12.59 in chips) 
+Seat 3: axf888 ($4.06 in chips) 
+Seat 4: Mallorny ($5 in chips) 
+Seat 5: bountykid99 ($6.91 in chips) 
+Seat 6: vreska ($6.51 in chips) 
+Zwenni24: posts small blind $0.02
+axf888: posts big blind $0.05
 *** HOLE CARDS ***
-Dealt to FluffyStutt [2h Ks]
-FluffyStutt said, "nh"
-Dette32: calls 100
-Drug08: calls 100
-FluffyStutt: folds 
-adevlupec: checks 
-*** FLOP *** [8h 7s 8d]
-adevlupec: checks 
-Dette32: checks 
-Drug08: checks 
-*** TURN *** [8h 7s 8d] [Th]
-adevlupec: checks 
-Dette32: checks 
-Drug08: checks 
-*** RIVER *** [8h 7s 8d Th] [2c]
-adevlupec: checks 
-Dette32: checks 
-Drug08: checks 
-*** SHOW DOWN ***
-adevlupec: shows [Qs Ts] (two pair, Tens and Eights)
-Dette32: mucks hand 
-Drug08: mucks hand 
-adevlupec collected 332 from pot
+Dealt to KavarzE [6d 7c]
+Mallorny: folds 
+bountykid99: folds 
+vreska: folds 
+KavarzE: folds 
+Zwenni24: raises $0.05 to $0.10
+axf888: folds 
+Uncalled bet ($0.05) returned to Zwenni24
+Zwenni24 collected $0.10 from pot
+Zwenni24: doesn't show hand 
 *** SUMMARY ***
-Total pot 350 | Rake 18 
-Board [8h 7s 8d Th 2c]
-Seat 1: adevlupec (big blind) showed [Qs Ts] and won (332) with two pair, Tens and Eights
-Seat 2: Dette32 mucked [5s Kc]
-Seat 3: Drug08 (button) mucked [4d 6h]
-Seat 4: FluffyStutt (small blind) folded before Flop
+Total pot $0.10 | Rake $0 
+Seat 1: KavarzE (button) folded before Flop (didn't bet)
+Seat 2: Zwenni24 (small blind) collected ($0.10)
+Seat 3: axf888 (big blind) folded before Flop
+Seat 4: Mallorny folded before Flop (didn't bet)
+Seat 5: bountykid99 folded before Flop (didn't bet)
+Seat 6: vreska folded before Flop (didn't bet)
 
 
 
-Pokerstars broken hand with bad data somehow...
-Table 'Euphemia II' 6-max (Play Money) Seat #4 is the button
-Seat 1: adevlupec (53600 in chips) 
-Seat 2: Dette32 (10745 in chips) 
-Seat 3: Drug08 (9586 in chips) 
-Seat 4: FluffyStutt (11276 in chips) 
-yanksea will be allowed to play after the button
-adevlupec: posts small blind 50
-Dette32: posts big blind 100
+PokerStars Zoom Hand #254671591484:  Hold'em No Limit ($0.02/$0.05) - 2025/02/02 16:57:56 WET [2025/02/02 11:57:56 ET]
+Table 'Donati' 6-max Seat #1 is the button
+Seat 1: ikurah ($5 in chips) 
+Seat 2: KavarzE ($5 in chips) 
+Seat 3: Makitox ($5 in chips) 
+Seat 4: Nadolf51 ($8.15 in chips) 
+Seat 5: don caco 10 ($3.23 in chips) 
+Seat 6: 22_Olga ($4.94 in chips) 
+KavarzE: posts small blind $0.02
+Makitox: posts big blind $0.05
 *** HOLE CARDS ***
-Dealt to FluffyStutt [8s Qc]
-Drug08: calls 100
-FluffyStutt: calls 100
-adevlupec: folds 
-Dette32: checks 
-*** FLOP *** [8c Qh 4c]
-Dette32: checks 
-Drug08: checks 
-FluffyStutt: bets 332
-Dette32: folds 
-Drug08: calls 332
-*** TURN *** [8c Qh 4c] [Ac]
-Drug08: checks 
-FluffyStutt: bets 963
-Drug08: calls 963
-*** RIVER *** [8c Qh 4c Ac] [Td]
-Drug08: checks 
-FluffyStutt: bets 9881 and is all-in
-Drug08: folds 
-Uncalled bet (9881) returned to FluffyStutt
-FluffyStutt collected 2793 from pot
-FluffyStutt: doesn't show hand 
+Dealt to KavarzE [Kh Qh]
+Nadolf51: folds 
+don caco 10: folds 
+22_Olga: raises $0.10 to $0.15
+ikurah: folds 
+KavarzE: raises 0.45 to 0.60
+Makitox: folds 
+22_Olga: folds 
+Uncalled bet ($0.45) returned to KavarzE
+KavarzE collected $0.35 from pot
+KavarzE: doesn't show hand 
 *** SUMMARY ***
-Total pot 2940 | Rake 147 
-Board [8c Qh 4c Ac Td]
-Seat 1: adevlupec (small blind) folded before Flop
-Seat 2: Dette32 (big blind) folded on the Flop
-Seat 3: Drug08 folded on the River
-Seat 4: FluffyStutt (button) collected (2793)
+Total pot $0.35 | Rake $0 
+Seat 1: ikurah (button) folded before Flop (didn't bet)
+Seat 2: KavarzE (small blind) collected ($0.35)
+Seat 3: Makitox (big blind) folded before Flop
+Seat 4: Nadolf51 folded before Flop (didn't bet)
+Seat 5: don caco 10 folded before Flop (didn't bet)
+Seat 6: 22_Olga folded before Flop
 
 
 
-PokerStars Hand #174088919486:  Hold'em No Limit (50/100) - 2017/08/08 23:17:57 MSK [2017/08/08 16:17:57 ET]
-Table 'Euphemia II' 6-max (Play Money) Seat #4 is the button
-Seat 1: adevlupec (53600 in chips) 
-Seat 2: Dette32 (10745 in chips) 
-Seat 3: Drug08 (9586 in chips) 
-Seat 4: FluffyStutt (11276 in chips) 
-yanksea will be allowed to play after the button
-adevlupec: posts small blind 50
-Dette32: posts big blind 100
+PokerStars Zoom Hand #254671585485:  Hold'em No Limit ($0.02/$0.05) - 2025/02/02 16:57:25 WET [2025/02/02 11:57:25 ET]
+Table 'Donati' 6-max Seat #1 is the button
+Seat 1: ManeAlhekine ($5.25 in chips) 
+Seat 2: TANEV78 ($5 in chips) 
+Seat 3: KavarzE ($5 in chips) 
+Seat 4: ewpd ($11.06 in chips) 
+Seat 5: psbrets ($5.84 in chips) 
+Seat 6: AQsuit ($5.11 in chips) 
+TANEV78: posts small blind $0.02
+KavarzE: posts big blind $0.05
 *** HOLE CARDS ***
-Dealt to FluffyStutt [8s Qc]
-Drug08: calls 100
-FluffyStutt: calls 100
-adevlupec: folds 
-Dette32: checks 
-*** FLOP *** [8c Qh 4c]
-Dette32: checks 
-Drug08: checks 
-FluffyStutt: bets 332
-Dette32: folds 
-Drug08: calls 332
-*** TURN *** [8c Qh 4c] [Ac]
-Drug08: checks 
-FluffyStutt: bets 963
-Drug08: calls 963
-*** RIVER *** [8c Qh 4c Ac] [Td]
-Drug08: checks 
-FluffyStutt: bets 9881 and is all-in
-Drug08: folds 
-Uncalled bet (9881) returned to FluffyStutt
-FluffyStutt collected 2793 from pot
-FluffyStutt: doesn't show hand 
+Dealt to KavarzE [7d 8c]
+ewpd: folds 
+psbrets: folds 
+AQsuit: raises $0.07 to $0.12
+ManeAlhekine has timed out
+ManeAlhekine: folds 
+TANEV78: calls $0.10
+KavarzE: folds 
+*** FLOP *** [Ac 6h 2h]
+TANEV78: checks 
+AQsuit: checks 
+*** TURN *** [Ac 6h 2h] [6d]
+TANEV78: checks 
+AQsuit: checks 
+*** RIVER *** [Ac 6h 2h 6d] [4c]
+TANEV78: bets $0.10
+AQsuit: folds 
+Uncalled bet ($0.10) returned to TANEV78
+TANEV78 collected $0.28 from pot
+TANEV78: doesn't show hand 
 *** SUMMARY ***
-Total pot 2940 | Rake 147 
-Board [8c Qh 4c Ac Td]
-Seat 1: adevlupec (small blind) folded before Flop
-Seat 2: Dette32 (big blind) folded on the Flop
-Seat 3: Drug08 folded on the River
-Seat 4: FluffyStutt (button) collected (2793)`
+Total pot $0.29 | Rake $0.01 
+Board [Ac 6h 2h 6d 4c]
+Seat 1: ManeAlhekine (button) folded before Flop (didn't bet)
+Seat 2: TANEV78 (small blind) collected ($0.28)
+Seat 3: KavarzE (big blind) folded before Flop
+Seat 4: ewpd folded before Flop (didn't bet)
+Seat 5: psbrets folded before Flop (didn't bet)
+Seat 6: AQsuit folded on the River`

@@ -9,6 +9,8 @@ package pokerhud
 //     TODO - detect latest file in HH fs. Open file & parse changes to it?
 // }
 
+// TODO - RETURN uncalled bet needs to be parsed otherwise the valulations of what happened just aren't right...
+
 import (
 	"bufio"
 	"errors"
@@ -55,6 +57,16 @@ var (
 	ErrNoHandID   = errors.New("error no hand ID was found, unable parse. ignoring hand") // TODO: Perhaps make this a struct & add the file, hand info and error to struct.
 	ErrNoCurrency = errors.New("error parsing Action.Amount, expected currency'")
 )
+
+type ActionErr struct {
+	Path string
+	HandText string
+	Err error	
+}
+
+func (e *ActionErr) Error() string {
+	return fmt.Sprintf("%s %s : %v", e.Path, e.HandText, e.Err.Error())
+}
 
 // CurrencyError formats sends an error accepting a msg to provide further information about causation
 func CurrencyError(msg string) error {
@@ -178,13 +190,13 @@ func parseHandData(fileData []byte) ([]Hand, []error) {
 		handID, dateTime, board, infoErr := summaryInfoFromText(handText)
 		if infoErr != nil {
 			errs = append(errs, infoErr)
-			continue // the hand lacks crucial metadata - skip on
+			continue // the hand lacks crucial metadata - skip
 		}
 
 		players, actions, actionErr := actionsFromText(handText)
 		if actionErr != nil {
 			errs = append(errs, actionErr)
-			continue // the hand lacks crucial gameplay info - skip on
+			continue // the hand lacks crucial gameplay info - skip
 		}
 
 		hands = append(hands, Hand{
@@ -199,45 +211,51 @@ func parseHandData(fileData []byte) ([]Hand, []error) {
 }
 
 // ParseAndAppendActions builds an action from text data, and appends it to the existing Action slice before returning the now updated Action slice
-func ParseAndAppendActions(line string, street *Street, actions []Action, order *int) ([]Action, error) {
-	street.Next(line)
-	updatedActions, err := parseAction(line, actions, street, order)
-	if err != nil {
-		if !errors.Is(err, ErrNoAction) || !errors.Is(err, ErrNoCurrency) {
-			return updatedActions, err
-		}
-		return updatedActions, nil
-	}
-	return updatedActions, nil
-}
+// func ParseAndAppendActions(line string, street *Street, actions []Action, order *int) ([]Action, error) {
+// 	street.Next(line)
 
+// 	updatedActions, err := parseAction(line, actions, *street, order) //TODO - Pass street as value now, no need to be updating it beyond this func
+
+// 	if err != nil {
+// 		return updatedActions, err
+// 	}
+// 	return updatedActions, nil
+// }
+
+// ParseAction checks a line of text for a poker action and if found, creates and appends it to the existing list.
+// If there is no action found, the original Action slice will be returned. If there was an error parsing an action detail, the actions slice will become nil and void along with a non-nil error will be returned. 
 func parseAction(line string, actions []Action, actionStreet *Street, order *int) ([]Action, error) {
-	actionType, err := actionTypeFromText(line)
-
-	if errors.Is(err, ErrNoAction) {
-		return actions, nil
-	}
-
-	if err != nil {
-		return actions, err
+	actionStreet.Next(line)
+	actionType, actionFound := actionTypeFromText(line)
+	
+	if !actionFound {
+		return actions, nil 
 	}
 
 	// TODO - add player struct to the action rather than just the player name?
-	playerName, ok := actionPlayerNameFromText(line)
-	if ok {
-		amount, _ := actionAmountFromText(line)
+	playerName, playerErr := actionPlayerNameFromText(line)	
+	amount, amtErr := actionAmountFromText(line)
 
-		actions = append(actions, Action{
-			ActionType: actionType,
-			Player: Player{
-				Username: playerName,
-			},
-			Street: *actionStreet,
-			Order:  *order,
-			Amount: amount,
-		})
-		(*order)++
+	// TODO - return a more specific error
+	if playerErr != nil {
+		return actions, ErrNoAction
 	}
+
+	if amtErr != nil {
+		return actions, ErrNoAction
+	}
+
+	actions = append(actions, Action{
+		ActionType: actionType,
+		Player: Player{
+			Username: playerName,
+		},
+		Street: *actionStreet,
+		Order:  *order,
+		Amount: amount,
+	})
+	*order ++
+	
 	return actions, nil
 }
 
@@ -260,22 +278,22 @@ func handIDFromText(handText string) string {
 	return ""
 }
 
-func actionTypeFromText(line string) (ActionType, error) {
+func actionTypeFromText(line string) (ActionType, bool) {
 	actionTypes := []ActionType{Posts, Folds, Checks, Bets, Calls, Raises}
 
 	for _, t := range actionTypes {
 		if strings.Contains(line, t.String()) {
-			return t, nil
+			return t, true
 		}
 	}
-	return "", NoActionError(fmt.Sprintf("on line %v", line))
+	return "", false
 }
 
-func actionPlayerNameFromText(line string) (string, bool) {
+func actionPlayerNameFromText(line string) (string, error) {
 	if strings.Contains(line, ":") {
-		return strings.Split(line, ":")[0], true
+		return strings.Split(line, ":")[0], nil
 	}
-	return "", false
+	return "", errors.New("could not parse name in action")
 }
 
 func actionAmountFromText(line string) (float64, error) {
@@ -368,17 +386,11 @@ func playersFromText(line string) (Player, bool) {
 }
 
 func parsePlayerInfo(line string, cardPrefix string) Player {
-	var playerName string
+	playerName := strings.Fields(line)[2]
 	var cards string
 
 	if cardPrefix != "" {
-		splitLine := strings.Split(line, cardPrefix)
-		prefixWithPlayerName := splitLine[0]
-		playerName = strings.Fields(prefixWithPlayerName)[2]
-		cards = strings.Split(splitLine[1], "]")[0]
-	} else {
-		playerName = strings.Fields(line)[2]
-		cards = ""
+		cards = substringBetween(line, cardPrefix, "]")
 	}
 
 	return Player{
@@ -420,15 +432,14 @@ func actionsFromText(handText string) ([]Player, []Action, error) {
 
 	scanner := createHandScanner(handText)
 
-	//TODO cleaning this up...
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		actionResult, actionErr := ParseAndAppendActions(line, &street, actions, &order)
+		actionResult, actionErr := parseAction(line, actions, &street, &order) // TODO - We parse and append here, but we append explicitly outside of helper 
+																						//	below for players.
 		if actionErr != nil {
 			return nil, nil, actionErr
 		}
-
 		actions = actionResult
 
 		if playersFound, ok := playersFromText(line); ok {
