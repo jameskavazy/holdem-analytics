@@ -266,24 +266,26 @@ func TestHandIdFromText(t *testing.T) {
 }
 
 func TestParseAction(t *testing.T) {
-	dummyActions := []Action{
-		{Player{"Kavarz", ""}, 2, Flop, Bets, 3},
-		{Player{"Burty", ""}, 3, Flop, Calls, 3},
-	}
+	// dummyActions := []Action{
+	// 	{Player{"Kavarz", ""}, 2, Flop, Bets, 3},
+	// 	{Player{"Burty", ""}, 3, Flop, Calls, 3},
+	// }
 	var dummyStreet = Flop
-	order := 4
+	order := 1
 
-	handData := "kv_def: calls $3"
+	handData := `Kavarz: bets $3`
 
-	got, err := parseAction(handData, dummyActions, &dummyStreet, &order)
+	got, _, err := parseAction(handData, &dummyStreet, &order)
 	if err != nil {
 		t.Error(err)
 	}
 
-	want := []Action{
-		{Player{"Kavarz", ""}, 2, Flop, Bets, 3},
-		{Player{"Burty", ""}, 3, Flop, Calls, 3},
-		{Player{"kv_def", ""}, 4, Flop, Calls, 3},
+	want := Action{
+		Player:     Player{"Kavarz", ""},
+		Order:      2,
+		Street:     Flop,
+		ActionType: Bets,
+		Amount:     3,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("wanted %#v but got %#v", want, got)

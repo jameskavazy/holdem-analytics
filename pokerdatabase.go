@@ -53,20 +53,10 @@ const (
 
 // Global Errs
 var (
-	ErrNoAction   = errors.New("error no action found on text line")
-	ErrNoHandID   = errors.New("error no hand ID was found, unable parse. ignoring hand") // TODO: Perhaps make this a struct & add the file, hand info and error to struct.
-	ErrNoCurrency = errors.New("error parsing Action.Amount, expected currency'")
+	ErrFailToParseAction = errors.New("error no action found on text line")
+	ErrNoHandID          = errors.New("error no hand ID was found, unable parse. ignoring hand") // TODO: Perhaps make this a struct & add the file, hand info and error to struct.
+	ErrNoCurrency        = errors.New("error parsing Action.Amount, expected currency'")
 )
-
-type ActionErr struct {
-	Path string
-	HandText string
-	Err error	
-}
-
-func (e *ActionErr) Error() string {
-	return fmt.Sprintf("%s %s : %v", e.Path, e.HandText, e.Err.Error())
-}
 
 // CurrencyError formats sends an error accepting a msg to provide further information about causation
 func CurrencyError(msg string) error {
@@ -77,8 +67,8 @@ func NoHandIDError(msg string) error {
 	return fmt.Errorf("%s: %w", msg, ErrNoHandID)
 }
 
-func NoActionError(msg string) error {
-	return fmt.Errorf("%w: %s", ErrNoAction, msg)
+func ActionParseError(msg string) error {
+	return fmt.Errorf("%w: %s", ErrFailToParseAction, msg)
 }
 
 // Hand represents a hand of poker
@@ -157,7 +147,6 @@ func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, []error) {
 		}()
 	}
 
-
 	for i := 0; i < len(dir); i++ {
 		h, _ := <-allHandsChannel
 
@@ -210,42 +199,32 @@ func parseHandData(fileData []byte) ([]Hand, []error) {
 	return hands, errs
 }
 
-// ParseAndAppendActions builds an action from text data, and appends it to the existing Action slice before returning the now updated Action slice
-// func ParseAndAppendActions(line string, street *Street, actions []Action, order *int) ([]Action, error) {
-// 	street.Next(line)
-
-// 	updatedActions, err := parseAction(line, actions, *street, order) //TODO - Pass street as value now, no need to be updating it beyond this func
-
-// 	if err != nil {
-// 		return updatedActions, err
-// 	}
-// 	return updatedActions, nil
-// }
-
 // ParseAction checks a line of text for a poker action and if found, creates and appends it to the existing list.
-// If there is no action found, the original Action slice will be returned. If there was an error parsing an action detail, the actions slice will become nil and void along with a non-nil error will be returned. 
-func parseAction(line string, actions []Action, actionStreet *Street, order *int) ([]Action, error) {
+// If there is no action found, the original Action slice will be returned. If there was an error parsing an action detail, the actions slice will become nil and void along with a non-nil error will be returned.
+func parseAction(line string, actionStreet *Street, order *int) (Action, bool, error) {
 	actionStreet.Next(line)
 	actionType, actionFound := actionTypeFromText(line)
-	
+
 	if !actionFound {
-		return actions, nil 
+		return Action{}, actionFound, nil
 	}
 
 	// TODO - add player struct to the action rather than just the player name?
-	playerName, playerErr := actionPlayerNameFromText(line)	
+	playerName, playerErr := actionPlayerNameFromText(line)
 	amount, amtErr := actionAmountFromText(line)
 
 	// TODO - return a more specific error
 	if playerErr != nil {
-		return actions, ErrNoAction
+		return Action{}, actionFound, ActionParseError(fmt.Sprintf("%v %v", playerErr, line))
 	}
 
 	if amtErr != nil {
-		return actions, ErrNoAction
+		return Action{}, actionFound, ActionParseError(fmt.Sprintf("%v %v", amtErr, line))
 	}
 
-	actions = append(actions, Action{
+	*order++
+
+	return Action{
 		ActionType: actionType,
 		Player: Player{
 			Username: playerName,
@@ -253,10 +232,8 @@ func parseAction(line string, actions []Action, actionStreet *Street, order *int
 		Street: *actionStreet,
 		Order:  *order,
 		Amount: amount,
-	})
-	*order ++
-	
-	return actions, nil
+	}, actionFound, nil
+
 }
 
 // Returns a pointer to bufio.Scanner for parsing Hand data
@@ -369,7 +346,7 @@ func substringBetween(text, start, end string) string {
 	return strings.Split(strings.Split(text, start)[1], end)[0]
 }
 
-func playersFromText(line string) (Player, bool) {
+func playerFromText(line string) (Player, bool) {
 	if strings.Contains(line, "showed [") {
 		return parsePlayerInfo(line, "showed ["), true
 	}
@@ -428,22 +405,25 @@ func actionsFromText(handText string) ([]Player, []Action, error) {
 	var players []Player
 	var actions []Action
 	var street Street = Preflop
-	var order = 1
+	var order = 0
 
 	scanner := createHandScanner(handText)
 
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		actionResult, actionErr := parseAction(line, actions, &street, &order) // TODO - We parse and append here, but we append explicitly outside of helper 
-																						//	below for players.
+		actionResult, actionFound, actionErr := parseAction(line, &street, &order)
+
 		if actionErr != nil {
 			return nil, nil, actionErr
 		}
-		actions = actionResult
 
-		if playersFound, ok := playersFromText(line); ok {
-			players = append(players, playersFound)
+		if actionFound {
+			actions = append(actions, actionResult)
+		}
+
+		if player, ok := playerFromText(line); ok {
+			players = append(players, player)
 		}
 	}
 	return players, actions, nil
