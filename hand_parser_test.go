@@ -157,6 +157,7 @@ KavarzE: bets $2.33`)},
 					{"KavarzE", 1, Preflop, Bets, 2.33},
 				},
 				nil,
+				0,
 			},
 		}
 
@@ -190,10 +191,10 @@ Seat 2: test2 ($3000 in chips)
 Dealt to KavarzE [Ad Ac]
 KavarzE: bets $2.33`)
 
-		got, _ := parseHandData(handData)
+		got, _ := parseHands(handData)
 		want := []Hand{
 			{
-				"123", time.Time{}.Local(), []Player{{Username: "KavarzE", Cards: "Ad Ac"}}, []Action{{"KavarzE", 1, Preflop, Bets, 2.33}}, nil,
+				"123", time.Time{}.Local(), []Player{{Username: "KavarzE", Cards: "Ad Ac"}}, []Action{{"KavarzE", 1, Preflop, Bets, 2.33}}, nil, 0,
 			},
 		}
 
@@ -205,7 +206,7 @@ KavarzE: bets $2.33`)
 	t.Run("Random non-hand data", func(t *testing.T) {
 		handData := []byte(`Random non-hand data, whoops!`)
 
-		_, err := parseHandData(handData)
+		_, err := parseHands(handData)
 
 		if err == nil {
 			t.Errorf("expected an error but didn't get one")
@@ -218,7 +219,7 @@ KavarzE: bets $2.33`)
 
 	t.Run("file with 3 hands, but one is corrupted", func(t *testing.T) {
 		handData := []byte(brokenHands)
-		hands, err := parseHandData(handData)
+		hands, err := parseHands(handData)
 
 		if len(hands) != 2 {
 			// fmt.Printf("%#v\n\n %#v", hands, err)
@@ -242,7 +243,7 @@ func TestHandIdFromText(t *testing.T) {
 	}
 }
 
-func TestParseAction(t *testing.T) {
+func TestActionsFromText(t *testing.T) {
 	// dummyActions := []Action{
 	// 	{Player{"Kavarz", ""}, 2, Flop, Bets, 3},
 	// 	{Player{"Burty", ""}, 3, Flop, Calls, 3},
@@ -252,7 +253,7 @@ func TestParseAction(t *testing.T) {
 
 	handData := `Kavarz: bets $3`
 
-	got, _, err := parseAction(handData, &dummyStreet, &order)
+	got, _, err := parseActionLine(handData, &dummyStreet, &order)
 	if err != nil {
 		t.Error(err)
 	}
@@ -286,7 +287,7 @@ func TestDateFromHandText(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.test, func(t *testing.T) {
 
-			got := dateTimeStringFromHandText(tt.test)
+			got := dateTimeFromText(tt.test)
 			if got != tt.want {
 				t.Errorf("got %v but wanted %v", got, tt.want)
 			}
@@ -335,7 +336,7 @@ func TestPlayerCardsFromText(t *testing.T) {
 				prefix = "mucked ["
 			}
 
-			got := parsePlayerInfo(tt.test, prefix)
+			got := playerInfoFromText(tt.test, prefix)
 
 			if got != tt.want {
 				t.Errorf("got %v but we wanted %v", got, tt.want)

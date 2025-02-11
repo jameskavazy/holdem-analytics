@@ -176,6 +176,7 @@ func TestHandHistoriesFromFS(t *testing.T) {
 				actionBuildHelper("KavarzE", pokerhud.Calls, pokerhud.Turn, 15, 2.09),
 			},
 			CommunityCards: []string{"7d 2h 8h Jh 3d", "7d 2h 8h Jh Qh"},
+			// Pot: 10.49,
 		}
 		assertHand(t, got, want)
 	})
@@ -188,7 +189,7 @@ func assertHand(t *testing.T, got, want pokerhud.Hand) {
 	}
 }
 
-func BenchmarkHandHistoryFromFS(b *testing.B) {
+func BenchmarkHandHistoryFromFS(_ *testing.B) {
 	pokerhud.HandHistoryFromFS(fstest.MapFS{
 		"zoom.txt":      {Data: []byte(zoomHand1)},
 		"cash game.txt": {Data: []byte(cashGame1)},
@@ -212,11 +213,11 @@ func (f failingFS) Open(string) (fs.File, error) {
 	return nil, errors.New("oh no i always fail")
 }
 
-type failingFile struct{}
+// type failingFile struct{}
 
-func (f failingFile) Open(string) {
+// func (f failingFile) Open(string) {
 
-}
+// }
 
 const zoomHand1 string = `PokerStars Zoom Hand #254445778475:  Hold'em No Limit ($0.02/$0.05) - 2025/01/19 12:00:43 WET [2025/01/19 7:00:43 ET]
 Table 'Donati' 6-max Seat #1 is the button
