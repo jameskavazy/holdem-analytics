@@ -1,7 +1,6 @@
 package pokerhud
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -146,7 +145,7 @@ func TestHandsFromSessionFile(t *testing.T) {
 			"zoom.txt": {Data: []byte(`PokerStars Hand #123: blah blah
 Seat 1: test ($6000 in chips)
 Seat 2: test2 ($3000 in chips)
-Dealt to me [Ad Ac]
+Dealt to KavarzE [Ad Ac]
 KavarzE: bets $2.33`)},
 		}
 
@@ -154,8 +153,8 @@ KavarzE: bets $2.33`)},
 
 		want := []Hand{
 			{
-				"123", time.Time{}.Local(), []Player(nil), []Action{
-					{Player{Username: "KavarzE"}, 1, Preflop, Bets, 2.33},
+				"123", time.Time{}.Local(), []Player{{Username: "KavarzE", Cards: "Ad Ac"}}, []Action{
+					{"KavarzE", 1, Preflop, Bets, 2.33},
 				},
 				nil,
 			},
@@ -188,13 +187,13 @@ func TestParseHandData(t *testing.T) {
 		handData := []byte(`PokerStars Hand #123: blah blah
 Seat 1: test ($6000 in chips)
 Seat 2: test2 ($3000 in chips)
-Dealt to me [Ad Ac]
+Dealt to KavarzE [Ad Ac]
 KavarzE: bets $2.33`)
 
 		got, _ := parseHandData(handData)
 		want := []Hand{
 			{
-				"123", time.Time{}.Local(), []Player(nil), []Action{{Player{Username: "KavarzE"}, 1, Preflop, Bets, 2.33}}, nil,
+				"123", time.Time{}.Local(), []Player{{Username: "KavarzE", Cards: "Ad Ac"}}, []Action{{"KavarzE", 1, Preflop, Bets, 2.33}}, nil,
 			},
 		}
 
@@ -219,7 +218,6 @@ KavarzE: bets $2.33`)
 
 	t.Run("file with 3 hands, but one is corrupted", func(t *testing.T) {
 		handData := []byte(brokenHands)
-
 		hands, err := parseHandData(handData)
 
 		if len(hands) != 2 {
@@ -232,27 +230,6 @@ KavarzE: bets $2.33`)
 		}
 	})
 }
-
-// func TestHandPlayerNames(t *testing.T) {
-// 	handData := "Seat 2: test2 ($3000 in chips)"
-// 	scanner := testingScanner(handData)
-// 	got := handPlayerNameFromText(scanner)
-// 	want := "test2"
-
-// 	if got != want {
-// 		t.Errorf("got %v wanted %v", got, want)
-// 	}
-// }
-
-// func TestSetHeroCards(t *testing.T) {
-// 	handData := "Dealt to Karv [Ac Kc]"
-// 	got := heroCardsFromText(handData)
-// 	want := "Ac Kc"
-
-// 	if got != want {
-// 		t.Errorf("got %v wanted %v", got, want)
-// 	}
-// }
 
 func TestHandIdFromText(t *testing.T) {
 	handData := "Pokerstars Hand #6548679821301346841: Holdem don't care"
@@ -281,7 +258,7 @@ func TestParseAction(t *testing.T) {
 	}
 
 	want := Action{
-		Player:     Player{"Kavarz", ""},
+		PlayerName: "Kavarz",
 		Order:      2,
 		Street:     Flop,
 		ActionType: Bets,
@@ -341,6 +318,10 @@ func TestPlayerCardsFromText(t *testing.T) {
 		{`Seat 6: KavarzE mucked [6s 6d]`, Player{"KavarzE", "6s 6d"}},
 		{`Seat 5: ilbeback2017 showed [Tc Td] and won ($1.37) with a pair of Tens`, Player{"ilbeback2017", "Tc Td"}},
 		{`Seat 1: acsy797 (button) mucked [Jd Ks]`, Player{"acsy797", "Jd Ks"}},
+		{`Seat 1: KavarzE (big blind) collected ($0.04)`, Player{"KavarzE", ""}},
+		{`Seat 4: VanillaLight (big blind) collected ($0.04)`, Player{"VanillaLight", ""}},
+		{`Seat 4: JSIrony collected ($0.23)`, Player{"JSIrony", ""}},
+		{`Seat 6: Imbastrol folded before Flop (didn't bet)`, Player{"Imbastrol", ""}},
 	}
 
 	for _, tt := range cases {
@@ -353,6 +334,7 @@ func TestPlayerCardsFromText(t *testing.T) {
 			if strings.Contains(tt.test, "mucked [") {
 				prefix = "mucked ["
 			}
+
 			got := parsePlayerInfo(tt.test, prefix)
 
 			if got != tt.want {
@@ -360,12 +342,6 @@ func TestPlayerCardsFromText(t *testing.T) {
 			}
 		})
 	}
-}
-
-func testingScanner(handData string) *bufio.Scanner {
-	scanner := bufio.NewScanner(strings.NewReader(handData))
-	scanner.Scan()
-	return scanner
 }
 
 type failingFS struct{}

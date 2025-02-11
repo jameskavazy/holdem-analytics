@@ -16,16 +16,25 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	handInfoDelimiter string = "\n\n\n"
-	flopSignifier     string = "*** FLOP ***"
-	turnSignifier     string = "*** TURN ***"
-	riverSignifier    string = "*** RIVER ***" //TODO players can run it twice... >  *** FIRST RIVER *** *** SECOND RIVER ***
+	// handInfoDelimiter  string = "\r\n\r\n\r\n"
+	handInfoDelimiter       string = "\n\n\n"
+	flopSignifier           string = "*** FLOP ***"
+	turnSignifier           string = "*** TURN ***"
+	riverSignifier          string = "*** RIVER ***" //TODO players can run it twice... >  *** FIRST RIVER *** *** SECOND RIVER ***
+	showedSignifier         string = "showed ["
+	muckedSignifier         string = "mucked ["
+	foldedSignifier         string = "folded"
+	collectedSignifier      string = "collected ("
+	boardSignifier          string = "Board ["
+	ritFirstBoardSignifier  string = "FIRST Board ["
+	ritSecondBoardSignifier string = "SECOND Board ["
 )
 
 // Street represents stages of a poker hand
@@ -55,18 +64,20 @@ const (
 var (
 	ErrFailToParseAction = errors.New("error no action found on text line")
 	ErrNoHandID          = errors.New("error no hand ID was found, unable parse. ignoring hand") // TODO: Perhaps make this a struct & add the file, hand info and error to struct.
-	ErrNoCurrency        = errors.New("error parsing Action.Amount, expected currency'")
+	errNoCurrency        = errors.New("error parsing Action.Amount, expected currency'")
 )
 
-// CurrencyError formats sends an error accepting a msg to provide further information about causation
+// CurrencyError propagate an errNoCurrency error with customised message msg.
 func CurrencyError(msg string) error {
-	return fmt.Errorf("%w: %s", ErrNoCurrency, msg)
+	return fmt.Errorf("%w: %s", errNoCurrency, msg)
 }
 
+// NoHandIDError  propagate an ErrNoHandID error with customised message msg.
 func NoHandIDError(msg string) error {
 	return fmt.Errorf("%s: %w", msg, ErrNoHandID)
 }
 
+// ActionParseError propagate an ErrFailToParseAction error with customised message msg.
 func ActionParseError(msg string) error {
 	return fmt.Errorf("%w: %s", ErrFailToParseAction, msg)
 }
@@ -82,7 +93,7 @@ type Hand struct {
 
 // Action is a representation of individual actions made by players within a specific hand
 type Action struct {
-	Player     Player // TODO make player explicit type?
+	PlayerName string
 	Order      int
 	Street     Street
 	ActionType ActionType
@@ -110,7 +121,7 @@ func (t ActionType) String() string {
 	return string(t)
 }
 
-func (s *Street) Next(line string) {
+func (s *Street) next(line string) {
 	switch {
 	case strings.Contains(line, flopSignifier):
 		*s = Flop
@@ -125,7 +136,7 @@ func (s *Street) Next(line string) {
 func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, []error) {
 	dir, err := fs.ReadDir(fileSystem, ".")
 	if err != nil {
-		return nil, []error{errors.New("error reading file system")}
+		return nil, []error{err} //errors.New("error reading file system")
 	}
 
 	var allHands []Hand
@@ -143,12 +154,11 @@ func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, []error) {
 		go func() {
 			sessionHands, sessionFileErr := handsFromSessionFile(fileSystem, file.Name())
 			allHandsChannel <- handImport{sessionHands, sessionFileErr}
-
 		}()
 	}
 
 	for i := 0; i < len(dir); i++ {
-		h, _ := <-allHandsChannel
+		h := <-allHandsChannel
 
 		if h.hands != nil {
 			allHands = append(allHands, h.hands...)
@@ -163,8 +173,8 @@ func handsFromSessionFile(filesystem fs.FS, filename string) ([]Hand, []error) {
 	if err != nil {
 		return nil, []error{err}
 	}
-	hands, parseErr := parseHandData(handData)
-	return hands, parseErr
+	hands, parseErrs := parseHandData(handData)
+	return hands, parseErrs
 }
 
 func parseHandData(fileData []byte) ([]Hand, []error) {
@@ -175,7 +185,6 @@ func parseHandData(fileData []byte) ([]Hand, []error) {
 	var errs []error
 
 	for _, handText := range handsText {
-
 		handID, dateTime, board, infoErr := summaryInfoFromText(handText)
 		if infoErr != nil {
 			errs = append(errs, infoErr)
@@ -202,7 +211,7 @@ func parseHandData(fileData []byte) ([]Hand, []error) {
 // ParseAction checks a line of text for a poker action and if found, creates and appends it to the existing list.
 // If there is no action found, the original Action slice will be returned. If there was an error parsing an action detail, the actions slice will become nil and void along with a non-nil error will be returned.
 func parseAction(line string, actionStreet *Street, order *int) (Action, bool, error) {
-	actionStreet.Next(line)
+	actionStreet.next(line)
 	actionType, actionFound := actionTypeFromText(line)
 
 	if !actionFound {
@@ -226,23 +235,21 @@ func parseAction(line string, actionStreet *Street, order *int) (Action, bool, e
 
 	return Action{
 		ActionType: actionType,
-		Player: Player{
-			Username: playerName,
-		},
-		Street: *actionStreet,
-		Order:  *order,
-		Amount: amount,
+		PlayerName: playerName,
+		Street:     *actionStreet,
+		Order:      *order,
+		Amount:     amount,
 	}, actionFound, nil
 
 }
 
-// Returns a pointer to bufio.Scanner for parsing Hand data
+// CreateHandScanner returns a pointer to bufio.Scanner for parsing Hand data
 func createHandScanner(h string) *bufio.Scanner {
 	scanner := bufio.NewScanner(strings.NewReader(h))
 	return scanner
 }
 
-// Returns a hand Id string from the hand info string
+// handIDFromText returns the hand ID string from the hand info string
 func handIDFromText(handText string) string {
 	if !strings.Contains(handText, "Hand #") {
 		return ""
@@ -322,12 +329,12 @@ func parseDateTime(timeString string) time.Time {
 
 func parseCommunityCards(handText string) []string {
 	if strings.Contains(handText, "Hand was run twice") {
-		firstBoard := parseBoardInfo(handText, "FIRST Board [", "]")
-		secondBoard := parseBoardInfo(handText, "SECOND Board [", "]")
+		firstBoard := parseBoardInfo(handText, ritFirstBoardSignifier, "]")
+		secondBoard := parseBoardInfo(handText, ritSecondBoardSignifier, "]")
 		return []string{firstBoard, secondBoard}
 	}
-	if strings.Contains(handText, "Board [") {
-		board := parseBoardInfo(handText, "Board [", "]")
+	if strings.Contains(handText, boardSignifier) {
+		board := parseBoardInfo(handText, boardSignifier, "]")
 		return []string{board}
 	}
 	return nil
@@ -347,15 +354,23 @@ func substringBetween(text, start, end string) string {
 }
 
 func playerFromText(line string) (Player, bool) {
-	if strings.Contains(line, "showed [") {
-		return parsePlayerInfo(line, "showed ["), true
+	if strings.Contains(line, "Dealt to") {
+		return parsePlayerInfo(line, "["), true
 	}
 
-	if strings.Contains(line, "mucked [") {
-		return parsePlayerInfo(line, "mucked ["), true
+	if strings.Contains(line, showedSignifier) {
+		return parsePlayerInfo(line, showedSignifier), true
 	}
 
-	if strings.Contains(line, "folded") {
+	if strings.Contains(line, muckedSignifier) {
+		return parsePlayerInfo(line, muckedSignifier), true
+	}
+
+	if strings.Contains(line, foldedSignifier) {
+		return parsePlayerInfo(line, ""), true
+	}
+
+	if strings.Contains(line, collectedSignifier) {
 		return parsePlayerInfo(line, ""), true
 	}
 
@@ -404,7 +419,7 @@ func actionsFromText(handText string) ([]Player, []Action, error) {
 
 	var players []Player
 	var actions []Action
-	var street Street = Preflop
+	var street = Preflop
 	var order = 0
 
 	scanner := createHandScanner(handText)
@@ -423,7 +438,12 @@ func actionsFromText(handText string) ([]Player, []Action, error) {
 		}
 
 		if player, ok := playerFromText(line); ok {
-			players = append(players, player)
+			if !slices.ContainsFunc(players, func(p Player) bool {
+				return p.Username == player.Username
+			}) {
+				// Hero player is parsed before summary, so skip to avoid duplicate
+				players = append(players, player)
+			}
 		}
 	}
 	return players, actions, nil
