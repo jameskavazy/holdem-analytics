@@ -153,6 +153,9 @@ func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, []error) {
 
 func handsFromSessionFile(filesystem fs.FS, filename string) ([]Hand, []error) {
 	handData, err := fs.ReadFile(filesystem, filename)
+
+	// TODO - FILENAME will contain the currency type, set up some enums... etc.
+
 	if err != nil {
 		return nil, []error{err}
 	}

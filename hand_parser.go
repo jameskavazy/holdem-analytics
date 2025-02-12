@@ -24,6 +24,7 @@ const (
 	boardSignifier          string = "Board ["
 	ritFirstBoardSignifier  string = "FIRST Board ["
 	ritSecondBoardSignifier string = "SECOND Board ["
+	potSizeSignifier string = "Total pot " + Dollar
 )
 
 func parseHands(fileData []byte) ([]Hand, []error) {
@@ -34,7 +35,7 @@ func parseHands(fileData []byte) ([]Hand, []error) {
 	var errs []error
 
 	for _, handText := range handsText {
-		handID, dateTime, board, infoErr := parseHandSummary(handText)
+		handID, dateTime, board, pot, infoErr := parseHandSummary(handText)
 		if infoErr != nil {
 			errs = append(errs, infoErr)
 			continue // the hand lacks crucial metadata - skip
@@ -52,12 +53,14 @@ func parseHands(fileData []byte) ([]Hand, []error) {
 			Players:        players,
 			Actions:        actions,
 			CommunityCards: board,
+			Pot: pot,
 		})
 	}
 	return hands, errs
 }
 
-func parseHandSummary(handText string) (handID string, dateTime time.Time, board []string, err error) {
+// parseHandSummary pulls together the hand summary information and metadata.
+func parseHandSummary(handText string) (handID string, dateTime time.Time, board []string, pot float64, err error) {
 	handID = handIDFromText(handText)
 	if handID == "" {
 		shortHand := ellipsis(handText, 100) // Truncate hand info for error
@@ -65,9 +68,12 @@ func parseHandSummary(handText string) (handID string, dateTime time.Time, board
 	}
 	dateTime = parseDateTime(dateTimeFromText(handText))
 	board = parseCommunityCards(handText)
+	pot = potAmountFromText(handText)
 	return
 }
 
+// parseActions scans the hand data line by line and generates a slice of players and actions. Returns
+// a non-nil error if an error was received from the parse helper functions.
 func parseActions(handText string) ([]Player, []Action, error) {
 
 	var players []Player
@@ -212,7 +218,6 @@ func handIDFromText(handText string) string {
 	return ""
 }
 
-
 func parsePlayer(line string) (Player, bool) {
 	if strings.Contains(line, "Dealt to") {
 		return playerInfoFromText(line, "["), true
@@ -275,6 +280,12 @@ func dateTimeFromText(line string) string {
 	return formattedTimeString
 }
 
+// potAmountFromText extracts string value of the pot and returns it as a float64 value.
+func potAmountFromText(text string) float64 {
+	potString := substringBetween(text, potSizeSignifier, " |")
+	potFloat, _ := strconv.ParseFloat(potString, 64)
+	return potFloat
+}
 
 // Substring between returns the substring between the first instance of characters start and end.
 // If text does not contain the original text is returned unchanged

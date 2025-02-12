@@ -306,7 +306,6 @@ func TestParseDateTime(t *testing.T) {
 	if got != want {
 		t.Errorf("got %v wanted %v", got, want)
 	}
-
 }
 
 func TestPlayerCardsFromText(t *testing.T) {
@@ -342,6 +341,27 @@ func TestPlayerCardsFromText(t *testing.T) {
 				t.Errorf("got %v but we wanted %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestPotAmountFromText(t *testing.T) {
+
+	cases := []struct{
+		test string
+		want float64
+	}{
+		{"Total pot $0.94 | ", 0.94},
+		{"Total pot $10.55 | Rake", 10.55},
+		{"Total pot $2.36 | ", 2.36},
+		{"Total pot $0.05 |", 0.05},
+	}
+
+	for _, tt := range cases {
+		got := potAmountFromText(tt.test)
+		
+		if got != tt.want {
+			t.Errorf("got %f wanted %f", got, tt.want)
+		}
 	}
 }
 
