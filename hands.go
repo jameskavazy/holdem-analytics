@@ -64,16 +64,24 @@ func ActionParseError(msg string) error {
 	return fmt.Errorf("%w: %s", ErrFailToParseAction, msg)
 }
 
-// Hand represents a hand of poker 
+// Hand represents a hand of poker
 type Hand struct {
-	ID             string
-	Date           time.Time
-	Players        []Player
-	Actions        []Action
+	Metadata Metadata
+	Players  []Player
+	Actions  []Action
+	Summary  Summary
+	// TODO maybe create a metadata struct for ID+DateTime & Finishing?
+}
+
+type Metadata struct {
+	ID   string
+	Date time.Time
+}
+
+type Summary struct {
 	CommunityCards []string
 	Pot            float64
 	Rake           float64
-	// TODO maybe create a metadata struct for ID+DateTime & Finishing?
 }
 
 // Action is a representation of individual actions made by players within a specific hand

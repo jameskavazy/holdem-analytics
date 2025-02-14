@@ -119,8 +119,10 @@ func TestHandHistoriesFromFS(t *testing.T) {
 
 		got := handHistory[0]
 		want := pokerhud.Hand{
-			ID:      "254446123323",
-			Date:    handTime.Local(),
+			Metadata: pokerhud.Metadata{
+				ID:      "254446123323",
+				Date:    handTime.Local(),
+			},
 			Players: []pokerhud.Player{{"KavarzE", "2s 5d"}, {"maximoIV", ""}, {"dlourencobss", "8s 9s"}, {"arsad725", ""}, {"RE0309", ""}, {"pernadao1599", "Jh Qc"}},
 			Actions: []pokerhud.Action{
 				actionBuildHelper("dlourencobss", pokerhud.Posts, pokerhud.Preflop, 1, 0.02),
@@ -140,9 +142,11 @@ func TestHandHistoriesFromFS(t *testing.T) {
 				actionBuildHelper("dlourencobss", pokerhud.Checks, pokerhud.River, 15, 0),
 				actionBuildHelper("pernadao1599", pokerhud.Checks, pokerhud.River, 16, 0),
 			},
-			CommunityCards: []string{"2h Ts Jc 3h 8c"},
-			Pot: 0.94,
-			Rake: 0.05,
+			Summary: pokerhud.Summary{
+				CommunityCards: []string{"2h Ts Jc 3h 8c"},
+				Pot: 0.94,
+				Rake: 0.05,
+			},
 		}
 
 		assertHand(t, got, want)
@@ -157,8 +161,10 @@ func TestHandHistoriesFromFS(t *testing.T) {
 
 		got := handHistory[0]
 		want := pokerhud.Hand{
-			ID:      "254607988518",
-			Date:    handTime.Local(),
+			Metadata: pokerhud.Metadata{
+				ID:      "254607988518",
+				Date:    handTime.Local(),
+			},
 			Players: []pokerhud.Player{{"KavarzE", "Jc Js"}, {"TurivVB240492", ""}, {"RoMike2", ""}, {"hiroakin", ""}, {"ThxWasOby3", "Ah Qd"}, {"VLSALT", ""}},
 			Actions: []pokerhud.Action{
 				actionBuildHelper("KavarzE", pokerhud.Posts, pokerhud.Preflop, 1, 0.02),
@@ -177,9 +183,11 @@ func TestHandHistoriesFromFS(t *testing.T) {
 				actionBuildHelper("ThxWasOby3", pokerhud.Raises, pokerhud.Turn, 14, 2.09),
 				actionBuildHelper("KavarzE", pokerhud.Calls, pokerhud.Turn, 15, 2.09),
 			},
-			CommunityCards: []string{"7d 2h 8h Jh 3d", "7d 2h 8h Jh Qh"},
-			Pot: 10.49,
-			Rake: 0.44,
+			Summary: pokerhud.Summary{
+				CommunityCards: []string{"7d 2h 8h Jh 3d", "7d 2h 8h Jh Qh"},
+				Pot: 10.49,
+				Rake: 0.44,
+			},
 		}
 		assertHand(t, got, want)
 	})

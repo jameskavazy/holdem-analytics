@@ -45,6 +45,40 @@ func TestActionTypeFromText(t *testing.T) {
 	}
 }
 
+func TestParseHandSummary(t *testing.T) {
+	handText := testHands
+
+	summary, _ := parseHandSummary(handText)
+
+	
+	summaryWant := Summary{
+		Pot:            0.36,
+		Rake:           0.01,
+		CommunityCards: []string{"Qc As 3d 2h"},
+	}
+
+	
+	if !reflect.DeepEqual(summary, summaryWant) {
+		t.Errorf("got %#v, but wanted %#v", summary, summaryWant)
+	}
+}
+
+func TestParseMetadata(t *testing.T) {
+	handText := testHands
+	handTime, _ := time.Parse(time.DateTime, "2025-01-21 20:51:32")
+
+	metadata, _ := parseMetaData(handText)
+
+	metadataWant := Metadata{
+		ID:   "254489598204",
+		Date: handTime.Local(),
+	}
+
+	if metadata != metadataWant {
+		t.Errorf("got %#v, but wanted %#v", metadata, metadataWant)
+	}
+}
+
 func TestPlayerNameActionFromText(t *testing.T) {
 	cases := map[string]string{
 		"kv_def: posts small blind $0.02": "kv_def",
@@ -153,12 +187,13 @@ KavarzE: bets $2.33`)},
 
 		want := []Hand{
 			{
-				"123", time.Time{}.Local(), []Player{{Username: "KavarzE", Cards: "Ad Ac"}}, []Action{
+				Metadata{"123", time.Time{}.Local()},
+				[]Player{{Username: "KavarzE", Cards: "Ad Ac"}}, []Action{
 					{"KavarzE", 1, Preflop, Bets, 2.33},
 				},
-				nil,
-				0,
-				0,
+				Summary{
+					nil, 0, 0,
+				},
 			},
 		}
 
@@ -195,7 +230,13 @@ KavarzE: bets $2.33`)
 		got, _ := parseHands(handData)
 		want := []Hand{
 			{
-				"123", time.Time{}.Local(), []Player{{Username: "KavarzE", Cards: "Ad Ac"}}, []Action{{"KavarzE", 1, Preflop, Bets, 2.33}}, nil, 0, 0,
+				Metadata{
+					"123", time.Time{}.Local(),
+				},
+				[]Player{{Username: "KavarzE", Cards: "Ad Ac"}}, []Action{{"KavarzE", 1, Preflop, Bets, 2.33}},
+				Summary{
+					nil, 0, 0,
+				},
 			},
 		}
 
@@ -348,7 +389,7 @@ func TestPlayerCardsFromText(t *testing.T) {
 func TestAmountFromText(t *testing.T) {
 
 	t.Run("happy path pot", func(t *testing.T) {
-		cases := []struct{
+		cases := []struct {
 			test string
 			want float64
 		}{
@@ -357,14 +398,14 @@ func TestAmountFromText(t *testing.T) {
 			{"Total pot $2.36 | ", 2.36},
 			{"Total pot $0.05 |", 0.05},
 		}
-	
+
 		for _, tt := range cases {
 			got, err := amountFromText(tt.test, potSizeSignifier)
-	
+
 			if err != nil {
 				t.Error("expected nil error but got one")
 			}
-			
+
 			if got != tt.want {
 				t.Errorf("got %f wanted %f", got, tt.want)
 			}
@@ -372,7 +413,7 @@ func TestAmountFromText(t *testing.T) {
 	})
 
 	t.Run("happy path rake", func(t *testing.T) {
-		cases := []struct{
+		cases := []struct {
 			test string
 			want float64
 		}{
@@ -381,14 +422,14 @@ func TestAmountFromText(t *testing.T) {
 			{"Rake $2.36\n", 2.36},
 			{"| Rake $0.05\n", 0.05},
 		}
-	
+
 		for _, tt := range cases {
 			got, err := amountFromText(tt.test, rakeSizeSignifier)
-	
+
 			if err != nil {
 				t.Errorf("expected nil error but got %v", err)
 			}
-			
+
 			if got != tt.want {
 				t.Errorf("got %f wanted %f", got, tt.want)
 			}
@@ -396,8 +437,8 @@ func TestAmountFromText(t *testing.T) {
 	})
 
 	t.Run("failing non-float strings", func(t *testing.T) {
-		cases := []struct{
-			test string
+		cases := []struct {
+			test   string
 			result float64
 		}{
 			{"oh no there's no float value here", 0},
@@ -417,7 +458,7 @@ func TestAmountFromText(t *testing.T) {
 			}
 		}
 	})
-	
+
 }
 
 type failingFS struct{}
@@ -426,44 +467,44 @@ func (f failingFS) Open(name string) (fs.File, error) {
 	return nil, errors.New("oh no i always fail")
 }
 
-// const testHands string = `PokerStars Zoom Hand #254489598204:  Hold'em No Limit ($0.02/$0.05) - 2025/01/21 20:51:32 WET [2025/01/21 15:51:32 ET]
-// Table 'Donati' 6-max Seat #1 is the button
-// Seat 1: JDfq28 ($5.11 in chips)
-// Seat 2: kv_def ($11.57 in chips)
-// Seat 3: KavarzE ($5 in chips)
-// Seat 4: MGPN ($4.63 in chips)
-// Seat 5: ikin23 ($7.63 in chips)
-// Seat 6: honda589 ($5.38 in chips)
-// kv_def: posts small blind $0.02
-// KavarzE: posts big blind $0.05
-// *** HOLE CARDS ***
-// Dealt to KavarzE [3c 7c]
-// MGPN: folds
-// ikin23: folds
-// honda589: folds
-// JDfq28: raises $0.07 to $0.12
-// kv_def: calls $0.10
-// KavarzE: calls $0.07
-// *** FLOP *** [Qc As 3d]
-// kv_def: checks
-// KavarzE: checks
-// JDfq28: checks
-// *** TURN *** [Qc As 3d] [2h]
-// kv_def: bets $0.20
-// KavarzE: folds
-// JDfq28: folds
-// Uncalled bet ($0.20) returned to kv_def
-// kv_def collected $0.35 from pot
-// kv_def: doesn't show hand
-// *** SUMMARY ***
-// Total pot $0.36 | Rake $0.01
-// Board [Qc As 3d 2h]
-// Seat 1: JDfq28 (button) folded on the Turn
-// Seat 2: kv_def (small blind) collected ($0.35)
-// Seat 3: KavarzE (big blind) folded on the Turn
-// Seat 4: MGPN folded before Flop (didn't bet)
-// Seat 5: ikin23 folded before Flop (didn't bet)
-// Seat 6: honda589 folded before Flop (didn't bet)
+const testHands string = `PokerStars Zoom Hand #254489598204:  Hold'em No Limit ($0.02/$0.05) - 2025/01/21 20:51:32 WET [2025/01/21 15:51:32 ET]
+Table 'Donati' 6-max Seat #1 is the button
+Seat 1: JDfq28 ($5.11 in chips)
+Seat 2: kv_def ($11.57 in chips)
+Seat 3: KavarzE ($5 in chips)
+Seat 4: MGPN ($4.63 in chips)
+Seat 5: ikin23 ($7.63 in chips)
+Seat 6: honda589 ($5.38 in chips)
+kv_def: posts small blind $0.02
+KavarzE: posts big blind $0.05
+*** HOLE CARDS ***
+Dealt to KavarzE [3c 7c]
+MGPN: folds
+ikin23: folds
+honda589: folds
+JDfq28: raises $0.07 to $0.12
+kv_def: calls $0.10
+KavarzE: calls $0.07
+*** FLOP *** [Qc As 3d]
+kv_def: checks
+KavarzE: checks
+JDfq28: checks
+*** TURN *** [Qc As 3d] [2h]
+kv_def: bets $0.20
+KavarzE: folds
+JDfq28: folds
+Uncalled bet ($0.20) returned to kv_def
+kv_def collected $0.35 from pot
+kv_def: doesn't show hand
+*** SUMMARY ***
+Total pot $0.36 | Rake $0.01
+Board [Qc As 3d 2h]
+Seat 1: JDfq28 (button) folded on the Turn
+Seat 2: kv_def (small blind) collected ($0.35)
+Seat 3: KavarzE (big blind) folded on the Turn
+Seat 4: MGPN folded before Flop (didn't bet)
+Seat 5: ikin23 folded before Flop (didn't bet)
+Seat 6: honda589 folded before Flop (didn't bet)`
 
 // const testHand string = `KavarzE: posts small blind $0.02
 // getaddicted: posts big blind $0.05

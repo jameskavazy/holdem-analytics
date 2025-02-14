@@ -37,9 +37,11 @@ func parseHands(fileData []byte) ([]Hand, []error) {
 	var errs []error
 
 	for _, handText := range handsText {
-		handID, dateTime, board, pot, rake, infoErr := parseHandSummary(handText)
-		if infoErr != nil {
-			errs = append(errs, infoErr)
+		metadata, metadataErr := parseMetaData(handText)
+		summary, _ := parseHandSummary(handText)
+	
+		if metadataErr != nil {
+			errs = append(errs, metadataErr)
 			continue // the hand lacks crucial metadata - skip
 		}
 
@@ -50,31 +52,40 @@ func parseHands(fileData []byte) ([]Hand, []error) {
 		}
 
 		hands = append(hands, Hand{
-			ID:             handID,
-			Date:           dateTime,
+			Metadata: metadata,
 			Players:        players,
 			Actions:        actions,
-			CommunityCards: board,
-			Pot:            pot,
-			Rake:           rake,
+			Summary: summary,
 		})
 	}
 	return hands, errs
 }
 
 // parseHandSummary pulls together the hand summary information and metadata.
-func parseHandSummary(handText string) (string, time.Time, []string, float64, float64, error) {
-	var err error
+func parseHandSummary(handText string) (Summary, error) {
+	board := parseCommunityCards(handText)
+	pot, potErr := amountFromText(handText, potSizeSignifier)
+	if potErr != nil {
+		return Summary{}, potErr
+	}
+	rake, rakeErr := amountFromText(handText, rakeSizeSignifier)
+	if rakeErr != nil {
+		return Summary{}, rakeErr
+	}
+
+	summary := Summary{board, pot, rake}
+	return summary, nil
+}
+
+func parseMetaData(handText string) (Metadata, error) {
 	handID := handIDFromText(handText)
 	if handID == "" {
 		shortHand := ellipsis(handText, 100) // Truncate hand info for error
-		err = NoHandIDError(fmt.Sprintf("in hand %v", shortHand))
+		return Metadata{}, NoHandIDError(fmt.Sprintf("in hand %v", shortHand))
 	}
 	dateTime := parseDateTime(dateTimeFromText(handText))
-	board := parseCommunityCards(handText)
-	pot, _ := amountFromText(handText, potSizeSignifier)
-	rake, _ := amountFromText(handText, rakeSizeSignifier)
-	return handID, dateTime, board, pot, rake, err
+	metadata := Metadata{handID, dateTime}
+	return metadata, nil
 }
 
 // parseActions scans the hand data line by line and generates a slice of players and actions. Returns
