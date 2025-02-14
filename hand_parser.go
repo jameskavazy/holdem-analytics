@@ -13,6 +13,7 @@ import (
 // Delimiter and signifier constants for parsing hand files
 const (
 	// handInfoDelimiter  string = "\r\n\r\n\r\n"
+	newLine                 string = "\n"
 	handInfoDelimiter       string = "\n\n\n"
 	flopSignifier           string = "*** FLOP ***"
 	turnSignifier           string = "*** TURN ***"
@@ -24,7 +25,8 @@ const (
 	boardSignifier          string = "Board ["
 	ritFirstBoardSignifier  string = "FIRST Board ["
 	ritSecondBoardSignifier string = "SECOND Board ["
-	potSizeSignifier string = "Total pot " + Dollar
+	potSizeSignifier        string = "Total pot "
+	rakeSizeSignifier       string = "Rake "
 )
 
 func parseHands(fileData []byte) ([]Hand, []error) {
@@ -35,7 +37,7 @@ func parseHands(fileData []byte) ([]Hand, []error) {
 	var errs []error
 
 	for _, handText := range handsText {
-		handID, dateTime, board, pot, infoErr := parseHandSummary(handText)
+		handID, dateTime, board, pot, rake, infoErr := parseHandSummary(handText)
 		if infoErr != nil {
 			errs = append(errs, infoErr)
 			continue // the hand lacks crucial metadata - skip
@@ -53,23 +55,26 @@ func parseHands(fileData []byte) ([]Hand, []error) {
 			Players:        players,
 			Actions:        actions,
 			CommunityCards: board,
-			Pot: pot,
+			Pot:            pot,
+			Rake:           rake,
 		})
 	}
 	return hands, errs
 }
 
 // parseHandSummary pulls together the hand summary information and metadata.
-func parseHandSummary(handText string) (handID string, dateTime time.Time, board []string, pot float64, err error) {
-	handID = handIDFromText(handText)
+func parseHandSummary(handText string) (string, time.Time, []string, float64, float64, error) {
+	var err error
+	handID := handIDFromText(handText)
 	if handID == "" {
 		shortHand := ellipsis(handText, 100) // Truncate hand info for error
 		err = NoHandIDError(fmt.Sprintf("in hand %v", shortHand))
 	}
-	dateTime = parseDateTime(dateTimeFromText(handText))
-	board = parseCommunityCards(handText)
-	pot = potAmountFromText(handText)
-	return
+	dateTime := parseDateTime(dateTimeFromText(handText))
+	board := parseCommunityCards(handText)
+	pot, _ := amountFromText(handText, potSizeSignifier)
+	rake, _ := amountFromText(handText, rakeSizeSignifier)
+	return handID, dateTime, board, pot, rake, err
 }
 
 // parseActions scans the hand data line by line and generates a slice of players and actions. Returns
@@ -181,6 +186,8 @@ func actionPlayerNameFromText(line string) (string, error) {
 }
 
 func actionAmountFromText(line string) (float64, error) {
+
+	// todo clean this up because you got the new func: amountFromText(line, Dollar)
 	if strings.Contains(line, Dollar) && !strings.Contains(line, " to ") {
 		amount, err := strconv.ParseFloat((strings.Split(line, Dollar)[1]), 64)
 		if err != nil {
@@ -280,11 +287,19 @@ func dateTimeFromText(line string) string {
 	return formattedTimeString
 }
 
-// potAmountFromText extracts string value of the pot and returns it as a float64 value.
-func potAmountFromText(text string) float64 {
-	potString := substringBetween(text, potSizeSignifier, " |")
-	potFloat, _ := strconv.ParseFloat(potString, 64)
-	return potFloat
+func amountFromText(handText, sizePrefix string) (float64, error) {
+	var suffix string
+	if sizePrefix == potSizeSignifier {
+		suffix = " |"
+	} else {
+		suffix = newLine
+	}
+	amtString := substringBetween(handText, sizePrefix+Dollar, suffix)
+	amtFloat, err := strconv.ParseFloat(amtString, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unable to parse float parsing: %w", err)
+	}
+	return amtFloat, nil
 }
 
 // Substring between returns the substring between the first instance of characters start and end.

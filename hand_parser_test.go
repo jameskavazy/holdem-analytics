@@ -158,6 +158,7 @@ KavarzE: bets $2.33`)},
 				},
 				nil,
 				0,
+				0,
 			},
 		}
 
@@ -194,7 +195,7 @@ KavarzE: bets $2.33`)
 		got, _ := parseHands(handData)
 		want := []Hand{
 			{
-				"123", time.Time{}.Local(), []Player{{Username: "KavarzE", Cards: "Ad Ac"}}, []Action{{"KavarzE", 1, Preflop, Bets, 2.33}}, nil, 0,
+				"123", time.Time{}.Local(), []Player{{Username: "KavarzE", Cards: "Ad Ac"}}, []Action{{"KavarzE", 1, Preflop, Bets, 2.33}}, nil, 0, 0,
 			},
 		}
 
@@ -344,25 +345,79 @@ func TestPlayerCardsFromText(t *testing.T) {
 	}
 }
 
-func TestPotAmountFromText(t *testing.T) {
+func TestAmountFromText(t *testing.T) {
 
-	cases := []struct{
-		test string
-		want float64
-	}{
-		{"Total pot $0.94 | ", 0.94},
-		{"Total pot $10.55 | Rake", 10.55},
-		{"Total pot $2.36 | ", 2.36},
-		{"Total pot $0.05 |", 0.05},
-	}
-
-	for _, tt := range cases {
-		got := potAmountFromText(tt.test)
-		
-		if got != tt.want {
-			t.Errorf("got %f wanted %f", got, tt.want)
+	t.Run("happy path pot", func(t *testing.T) {
+		cases := []struct{
+			test string
+			want float64
+		}{
+			{"Total pot $0.94 | ", 0.94},
+			{"Total pot $10.55 | Rake", 10.55},
+			{"Total pot $2.36 | ", 2.36},
+			{"Total pot $0.05 |", 0.05},
 		}
-	}
+	
+		for _, tt := range cases {
+			got, err := amountFromText(tt.test, potSizeSignifier)
+	
+			if err != nil {
+				t.Error("expected nil error but got one")
+			}
+			
+			if got != tt.want {
+				t.Errorf("got %f wanted %f", got, tt.want)
+			}
+		}
+	})
+
+	t.Run("happy path rake", func(t *testing.T) {
+		cases := []struct{
+			test string
+			want float64
+		}{
+			{"Rake $0.94\n", 0.94},
+			{"Rake $10.55\n", 10.55},
+			{"Rake $2.36\n", 2.36},
+			{"| Rake $0.05\n", 0.05},
+		}
+	
+		for _, tt := range cases {
+			got, err := amountFromText(tt.test, rakeSizeSignifier)
+	
+			if err != nil {
+				t.Errorf("expected nil error but got %v", err)
+			}
+			
+			if got != tt.want {
+				t.Errorf("got %f wanted %f", got, tt.want)
+			}
+		}
+	})
+
+	t.Run("failing non-float strings", func(t *testing.T) {
+		cases := []struct{
+			test string
+			result float64
+		}{
+			{"oh no there's no float value here", 0},
+			{"Total pot $ unable to parsey", 0},
+			{"Rake $ unparseable", 0},
+		}
+
+		for _, tt := range cases {
+			got, err := amountFromText(tt.test, potSizeSignifier)
+
+			if err == nil {
+				t.Errorf("expected err but didn't get one")
+			}
+
+			if got != tt.result {
+				t.Errorf("got %v, but wanted %v", got, tt.result)
+			}
+		}
+	})
+	
 }
 
 type failingFS struct{}
