@@ -66,7 +66,6 @@ func TestParseHandSummary(t *testing.T) {
 func TestParseMetadata(t *testing.T) {
 	handText := testHands
 	handTime, _ := time.Parse(time.DateTime, "2025-01-21 20:51:32")
-
 	metadata, _ := parseMetaData(handText)
 
 	metadataWant := Metadata{

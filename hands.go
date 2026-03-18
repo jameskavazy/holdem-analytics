@@ -70,7 +70,6 @@ type Hand struct {
 	Players  []Player
 	Actions  []Action
 	Summary  Summary
-	// TODO maybe create a metadata struct for ID+DateTime & Finishing?
 }
 
 type Metadata struct {
