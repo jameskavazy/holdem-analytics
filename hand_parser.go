@@ -2,6 +2,7 @@ package pokerhud
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"regexp"
@@ -13,9 +14,9 @@ import (
 
 // Delimiter and signifier constants for parsing hand files
 const (
-	// handInfoDelimiter  string = "\r\n\r\n\r\n"
+	handInfoDelimiter       string = "\r\n\r\n\r\n"
+	// handInfoDelimiter       string = "\n\n\n"
 	newLine                 string = "\n"
-	handInfoDelimiter       string = "\n\n\n"
 	flopSignifier           string = "*** FLOP ***"
 	turnSignifier           string = "*** TURN ***"
 	riverSignifier          string = "*** RIVER ***" //TODO players can run it twice... >  *** FIRST RIVER *** *** SECOND RIVER ***
@@ -32,17 +33,24 @@ const (
 
 var amountRegex = regexp.MustCompile(`\$(\d+(?:\.\d+)?)`)
 
-func parseHands(fileData []byte) ([]Hand, []error) {	
-	sessionData := string(fileData)
-	handsText := strings.Split(sessionData, handInfoDelimiter)
+func parseHands(fileData *bufio.Scanner) ([]Hand, []error) {
+	fileData.Split(SplitByHands())
 
 	var hands []Hand
 	var errs []error
 
-	for _, handText := range handsText {
+	for fileData.Scan() {
+		handText := fileData.Text()
+
+		handText = strings.TrimSpace(handText)
+
+		if handText == "" {
+			continue
+		}
+
 		metadata, metadataErr := parseMetaData(handText)
 		summary, _ := parseHandSummary(handText)
-	
+
 		if metadataErr != nil {
 			errs = append(errs, metadataErr)
 			continue // the hand lacks crucial metadata - skip
@@ -50,15 +58,15 @@ func parseHands(fileData []byte) ([]Hand, []error) {
 
 		players, actions, actionErr := parseActions(handText)
 		if actionErr != nil {
-			errs = append(errs, errors.Join(fmt.Errorf(metadata.ID), actionErr) )
+			errs = append(errs, errors.Join(fmt.Errorf(metadata.ID), actionErr))
 			continue // the hand lacks crucial gameplay info - skip
 		}
 
 		hands = append(hands, Hand{
-			Metadata: 		metadata,
-			Players:        players,
-			Actions:        actions,
-			Summary: 		summary,
+			Metadata: metadata,
+			Players:  players,
+			Actions:  actions,
+			Summary:  summary,
 		})
 	}
 	return hands, errs
@@ -84,7 +92,7 @@ func parseMetaData(handText string) (Metadata, error) {
 	handID := handIDFromText(handText)
 	if handID == "" {
 		shortHand := ellipsis(handText, 100) // Truncate hand info for error
-		return Metadata{}, NoHandIDError(fmt.Sprintf("in hand %v", shortHand))
+		return Metadata{}, NoHandIDError(fmt.Sprintf("in hand %#v", shortHand))
 	}
 	dateTime := parseDateTime(dateTimeFromText(handText))
 	metadata := Metadata{handID, dateTime}
@@ -204,7 +212,7 @@ func actionAmountFromText(line string) (float64, error) {
 	if strings.Contains(line, "checks") || strings.Contains(line, "folds") {
 		return 0, nil
 	}
-		
+
 	matches := amountRegex.FindStringSubmatch(line)
 	if len(matches) < 2 {
 		return 0, CurrencyError(fmt.Sprintf("on line %v", line))
@@ -215,7 +223,7 @@ func actionAmountFromText(line string) (float64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed parsing amount %s: %w", matches[1], err)
 	}
-		
+
 	return amount, nil
 }
 
@@ -335,4 +343,25 @@ func ellipsis(s string, maxLen int) string {
 func createHandScanner(h string) *bufio.Scanner {
 	scanner := bufio.NewScanner(strings.NewReader(h))
 	return scanner
+}
+
+func SplitByHands() func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	delimiter := []byte(handInfoDelimiter)
+	delimLen := len(delimiter)
+
+	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		dataLen := len(data)
+		if atEOF && dataLen == 0 {
+			return 0, nil, nil
+		}
+
+		if i := bytes.Index(data, delimiter); i >= 0 {
+			return i + delimLen, data[0:i], nil
+		}
+
+		if atEOF {
+			return dataLen, data, nil
+		}
+		return 0, nil, nil
+	}
 }

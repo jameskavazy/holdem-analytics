@@ -1,6 +1,7 @@
 package pokerhud
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -241,8 +242,11 @@ Seat 1: test ($6000 in chips)
 Seat 2: test2 ($3000 in chips)
 Dealt to KavarzE [Ad Ac]
 KavarzE: bets $2.33`)
+		
+		bytesReader := bytes.NewReader(handData)
+		scanner := bufio.NewScanner(bytesReader)
 
-		got, _ := parseHands(handData)
+		got, _ := parseHands(scanner)
 		want := []Hand{
 			{
 				Metadata{
@@ -262,8 +266,10 @@ KavarzE: bets $2.33`)
 
 	t.Run("Random non-hand data", func(t *testing.T) {
 		handData := []byte(`Random non-hand data, whoops!`)
+		bytesReader := bytes.NewReader(handData)
+		scanner := bufio.NewScanner(bytesReader)
 
-		_, err := parseHands(handData)
+		_, err := parseHands(scanner)
 
 		if err == nil {
 			t.Errorf("expected an error but didn't get one")
@@ -276,7 +282,11 @@ KavarzE: bets $2.33`)
 
 	t.Run("file with 3 hands, but one is corrupted", func(t *testing.T) {
 		handData := []byte(brokenHands)
-		hands, err := parseHands(handData)
+		bytesReader := bytes.NewReader(handData)
+		scanner := bufio.NewScanner(bytesReader)
+
+
+		hands, err := parseHands(scanner)
 
 		if len(hands) != 2 {
 			// fmt.Printf("%#v\n\n %#v", hands, err)

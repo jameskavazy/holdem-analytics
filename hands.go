@@ -12,6 +12,7 @@ package pokerhud
 // TODO - RETURN uncalled bet needs to be parsed otherwise the valulations of what happened just aren't right...
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -161,13 +162,18 @@ func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, []error) {
 }
 
 func handsFromSessionFile(filesystem fs.FS, filename string) ([]Hand, []error) {
-	handData, err := fs.ReadFile(filesystem, filename)
+	file, err := filesystem.Open(filename)
 
 	// TODO - FILENAME will contain the currency type, set up some enums... etc.
 
 	if err != nil {
 		return nil, []error{err}
 	}
-	hands, parseErrs := parseHands(handData)
+
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	hands, parseErrs := parseHands(scanner)
 	return hands, parseErrs
 }
