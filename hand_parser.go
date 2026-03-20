@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -29,7 +30,9 @@ const (
 	rakeSizeSignifier       string = "Rake "
 )
 
-func parseHands(fileData []byte) ([]Hand, []error) {
+var amountRegex = regexp.MustCompile(`\$(\d+(?:\.\d+)?)`)
+
+func parseHands(fileData []byte) ([]Hand, []error) {	
 	sessionData := string(fileData)
 	handsText := strings.Split(sessionData, handInfoDelimiter)
 
@@ -47,15 +50,15 @@ func parseHands(fileData []byte) ([]Hand, []error) {
 
 		players, actions, actionErr := parseActions(handText)
 		if actionErr != nil {
-			errs = append(errs, actionErr)
+			errs = append(errs, errors.Join(fmt.Errorf(metadata.ID), actionErr) )
 			continue // the hand lacks crucial gameplay info - skip
 		}
 
 		hands = append(hands, Hand{
-			Metadata: metadata,
+			Metadata: 		metadata,
 			Players:        players,
 			Actions:        actions,
-			Summary: summary,
+			Summary: 		summary,
 		})
 	}
 	return hands, errs
@@ -158,7 +161,6 @@ func parseActionLine(line string, actionStreet *Street, order *int) (Action, boo
 		Order:      *order,
 		Amount:     amount,
 	}, actionFound, nil
-
 }
 
 func parseCommunityCards(handText string) []string {
@@ -196,31 +198,25 @@ func actionPlayerNameFromText(line string) (string, error) {
 	return "", errors.New("could not parse name in action")
 }
 
+// actionAmountFromText returns the monetary amount of the action. Returns an error if no currency found.
 func actionAmountFromText(line string) (float64, error) {
-
-	// todo clean this up because you got the new func: amountFromText(line, Dollar)
-	if strings.Contains(line, Dollar) && !strings.Contains(line, " to ") {
-		amount, err := strconv.ParseFloat((strings.Split(line, Dollar)[1]), 64)
-		if err != nil {
-			return amount, fmt.Errorf("received %v parsing line %v", err, line)
-		}
-		return amount, nil
-	}
-
-	if strings.Contains(line, Dollar) && strings.Contains(line, " to ") {
-		raiseAmt, _ := strings.CutSuffix(strings.Split(line, Dollar)[1], " to ")
-		amount, err := strconv.ParseFloat(raiseAmt, 64)
-		if err != nil {
-			return amount, fmt.Errorf("received %v parsing line %v", err, line)
-		}
-		return amount, nil
-	}
 
 	if strings.Contains(line, "checks") || strings.Contains(line, "folds") {
 		return 0, nil
 	}
+		
+	matches := amountRegex.FindStringSubmatch(line)
+	if len(matches) < 2 {
+		return 0, CurrencyError(fmt.Sprintf("on line %v", line))
+	}
 
-	return 0, CurrencyError(fmt.Sprintf("on line %v", line))
+	amount, err := strconv.ParseFloat(matches[1], 64)
+
+	if err != nil {
+		return 0, fmt.Errorf("failed parsing amount %s: %w", matches[1], err)
+	}
+		
+	return amount, nil
 }
 
 // handIDFromText returns the hand ID string from the hand info string

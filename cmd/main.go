@@ -1,24 +1,19 @@
 package main
 
 import (
-	// "fmt"
-	// "os"
-	// "pokerhud"
 	"fmt"
-	"slices"
+	"os"
+	"pokerhud"
 )
 
 func main() {
 	// fileSystem := os.DirFS("C:\\Users\\james\\testfolder")
-	// fileSystem := os.DirFS("C:\\Users\\james\\AppData\\Local\\PokerStars.UK\\HandHistory\\KavarzE")
-	// hands, _ := pokerhud.HandHistoryFromFS(fileSystem)
-	// fmt.Println(hands[0])
-	// fmt.Println(hands[55])
-
-	arr := []string{"hi", "woops", "ho"}
-	i := slices.IndexFunc(arr, func(s string) bool {
-		return s == "nljn"
-	})
-
-	fmt.Println(i)
+	fileSystem := os.DirFS("C:\\Users\\james\\AppData\\Local\\PokerStars.UK\\HandHistory\\KavarzE")
+	hands, err := pokerhud.HandHistoryFromFS(fileSystem)
+	fmt.Println(hands[0])
+	fmt.Println(len(hands))
+	fmt.Println("Errors: ", len(err))
+	for _, e := range err {
+		fmt.Printf(e.Error(), "\n\n")
+	}
 }

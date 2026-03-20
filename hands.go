@@ -149,7 +149,7 @@ func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, []error) {
 		}()
 	}
 
-	for i := 0; i < len(dir); i++ {
+	for range dir {
 		h := <-allHandsChannel
 
 		if h.hands != nil {

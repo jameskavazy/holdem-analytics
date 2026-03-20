@@ -151,6 +151,22 @@ func TestActionAmountFromText(t *testing.T) {
 		}
 	})
 
+	t.Run("player bets all-in", func(t *testing.T) {
+		cases := map[string]float64{
+			"Krawicz: bets $1.27 and is all-in": 1.27,
+			"windy886: bets $0.76 and is all-in": 0.76,
+		}
+
+		for c, want := range cases {
+			t.Run(c, func(t *testing.T) {
+				got, _ := actionAmountFromText(c)
+				if got != want {
+					t.Errorf("got %v, but wanted %v", got, want)
+				}
+			})
+		}
+	})
+
 	t.Run("error pathway", func(t *testing.T) {
 		cases := []string{
 			"kv_def: bets small blind 0.02",
