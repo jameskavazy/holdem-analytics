@@ -120,8 +120,8 @@ func TestHandHistoriesFromFS(t *testing.T) {
 		got := handHistory[0]
 		want := pokerhud.Hand{
 			Metadata: pokerhud.Metadata{
-				ID:      "254446123323",
-				Date:    handTime.Local(),
+				ID:   "254446123323",
+				Date: handTime.Local(),
 			},
 			Players: []pokerhud.Player{{"KavarzE", "2s 5d"}, {"maximoIV", ""}, {"dlourencobss", "8s 9s"}, {"arsad725", ""}, {"RE0309", ""}, {"pernadao1599", "Jh Qc"}},
 			Actions: []pokerhud.Action{
@@ -144,8 +144,8 @@ func TestHandHistoriesFromFS(t *testing.T) {
 			},
 			Summary: pokerhud.Summary{
 				CommunityCards: []string{"2h Ts Jc 3h 8c"},
-				Pot: 0.94,
-				Rake: 0.05,
+				Pot:            0.94,
+				Rake:           0.05,
 			},
 		}
 
@@ -162,8 +162,8 @@ func TestHandHistoriesFromFS(t *testing.T) {
 		got := handHistory[0]
 		want := pokerhud.Hand{
 			Metadata: pokerhud.Metadata{
-				ID:      "254607988518",
-				Date:    handTime.Local(),
+				ID:   "254607988518",
+				Date: handTime.Local(),
 			},
 			Players: []pokerhud.Player{{"KavarzE", "Jc Js"}, {"TurivVB240492", ""}, {"RoMike2", ""}, {"hiroakin", ""}, {"ThxWasOby3", "Ah Qd"}, {"VLSALT", ""}},
 			Actions: []pokerhud.Action{
@@ -185,8 +185,8 @@ func TestHandHistoriesFromFS(t *testing.T) {
 			},
 			Summary: pokerhud.Summary{
 				CommunityCards: []string{"7d 2h 8h Jh 3d", "7d 2h 8h Jh Qh"},
-				Pot: 10.49,
-				Rake: 0.44,
+				Pot:            10.49,
+				Rake:           0.44,
 			},
 		}
 		assertHand(t, got, want)
@@ -198,14 +198,6 @@ func assertHand(t *testing.T, got, want pokerhud.Hand) {
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("wanted %#v, \n\ngot %#v", want, got)
 	}
-}
-
-func BenchmarkHandHistoryFromFS(_ *testing.B) {
-	pokerhud.HandHistoryFromFS(fstest.MapFS{
-		"zoom.txt":      {Data: []byte(zoomHand1)},
-		"cash game.txt": {Data: []byte(cashGame1)},
-		"failure.txt":   {Data: []byte("not a hand")},
-	})
 }
 
 func actionBuildHelper(playerName string, actionType pokerhud.ActionType, street pokerhud.Street, order int, amount float64) pokerhud.Action {

@@ -14,8 +14,8 @@ import (
 
 // Delimiter and signifier constants for parsing hand files
 const (
-	// handInfoDelimiter string = "\r\n\r\n\r\n"
-	handInfoDelimiter       string = "\n\n\n"
+	handInfoDelimiter string = "\r\n\r\n\r\n"
+	// handInfoDelimiter       string = "\n\n\n"
 	newLine                 string = "\n"
 	flopSignifier           string = "*** FLOP ***"
 	turnSignifier           string = "*** TURN ***"

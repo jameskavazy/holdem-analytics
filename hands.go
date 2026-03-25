@@ -46,8 +46,6 @@ const (
 	Dollar string = "$"
 )
 
-var wg sync.WaitGroup
-
 // Global Errs
 var (
 	ErrFailToParseAction = errors.New("error no action found on text line")
@@ -139,29 +137,28 @@ func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, []error) {
 
 	var allHands []Hand
 	var handErrs []error
-
+	var wg sync.WaitGroup
 	handsChannel := make(chan handImport, 10000)
 
 	// TODO create a worker pool if dir len > 10
+	// runtime.NumCPU() for numWorkers range filesChannel and hands from sessionfile to hands CHan
 
 	for _, file := range dir {
 		// TODO - move file once processed... also some sort of logic that works out once whole file is read to move it? Get Hands While Playing...
 			// TODO - FILENAME will contain the currency type, set up some enums... etc.
 		// Count handErrs so we can tell the user X amount of hands errors
 		// Count the number of duplicates...
-		if file.IsDir() {
-			continue
+		if !file.IsDir() {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				ok, fsErr := handsFromSessionFile(fileSystem, file.Name(), handsChannel)
+	
+				if !ok {
+					log.Default().Printf("An error occured parsing file %#v", fsErr)
+				}
+			}()
 		}
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			ok, fsErr := handsFromSessionFile(fileSystem, file.Name(), handsChannel)
-
-			if !ok {
-				log.Fatal("An error occured parsing file", fsErr)
-			}
-		}()
 	}
 
 	go func() {
