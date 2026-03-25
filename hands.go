@@ -16,7 +16,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
+	"reflect"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -42,6 +45,8 @@ const (
 const (
 	Dollar string = "$"
 )
+
+var wg sync.WaitGroup
 
 // Global Errs
 var (
@@ -106,8 +111,8 @@ type Player struct {
 }
 
 type handImport struct {
-	hands    []Hand
-	handErrs []error
+	hand    Hand
+	handErr error
 }
 
 func (t ActionType) String() string {
@@ -135,45 +140,67 @@ func HandHistoryFromFS(fileSystem fs.FS) ([]Hand, []error) {
 	var allHands []Hand
 	var handErrs []error
 
-	allHandsChannel := make(chan handImport, len(dir))
+	handsChannel := make(chan handImport, 10000)
 
-	defer close(allHandsChannel)
+	// TODO create a worker pool if dir len > 10
 
 	for _, file := range dir {
 		// TODO - move file once processed... also some sort of logic that works out once whole file is read to move it? Get Hands While Playing...
+			// TODO - FILENAME will contain the currency type, set up some enums... etc.
 		// Count handErrs so we can tell the user X amount of hands errors
 		// Count the number of duplicates...
+		if file.IsDir() {
+			continue
+		}
 
+		wg.Add(1)
 		go func() {
-			sessionHands, sessionFileErr := handsFromSessionFile(fileSystem, file.Name())
-			allHandsChannel <- handImport{sessionHands, sessionFileErr}
+			defer wg.Done()
+			ok, fsErr := handsFromSessionFile(fileSystem, file.Name(), handsChannel)
+
+			if !ok {
+				log.Fatal("An error occured parsing file", fsErr)
+			}
 		}()
 	}
 
-	for range dir {
-		h := <-allHandsChannel
+	go func() {
+		wg.Wait()
+		close(handsChannel)
+	}()
 
-		if h.hands != nil {
-			allHands = append(allHands, h.hands...)
-			handErrs = append(handErrs, h.handErrs...)
+	for h := range handsChannel {
+
+		// TODO In for range dir we can receive the hands up to a 5k chunk and then commit to a database!
+
+		if !reflect.DeepEqual(h.hand, Hand{}) {
+			allHands = append(allHands, h.hand)
+			// TODO: upon receiving the handImport we can pass off to our backend. Spawn another goroutine here?
+		}
+		if h.handErr != nil {
+			handErrs = append(handErrs, h.handErr)
 		}
 	}
+
 	return allHands, handErrs
 }
 
-func handsFromSessionFile(filesystem fs.FS, filename string) ([]Hand, []error) {
+func handsFromSessionFile(filesystem fs.FS, filename string, handChan chan<- handImport) (ok bool, fsErr error) {
 	file, err := filesystem.Open(filename)
 
-	// TODO - FILENAME will contain the currency type, set up some enums... etc.
-
 	if err != nil {
-		return nil, []error{err}
+		return false, err
 	}
 
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 
-	hands, parseErrs := parseHands(scanner)
-	return hands, parseErrs
+	result, scanErr := parseHands(scanner, handChan)
+
+	if !result {
+		return false, scanErr
+	}
+
+	return true, nil
 }

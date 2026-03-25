@@ -14,8 +14,8 @@ import (
 
 // Delimiter and signifier constants for parsing hand files
 const (
-	handInfoDelimiter       string = "\r\n\r\n\r\n"
-	// handInfoDelimiter       string = "\n\n\n"
+	// handInfoDelimiter string = "\r\n\r\n\r\n"
+	handInfoDelimiter       string = "\n\n\n"
 	newLine                 string = "\n"
 	flopSignifier           string = "*** FLOP ***"
 	turnSignifier           string = "*** TURN ***"
@@ -33,11 +33,8 @@ const (
 
 var amountRegex = regexp.MustCompile(`\$(\d+(?:\.\d+)?)`)
 
-func parseHands(fileData *bufio.Scanner) ([]Hand, []error) {
-	fileData.Split(SplitByHands())
-
-	var hands []Hand
-	var errs []error
+func parseHands(fileData *bufio.Scanner, handChan chan<- handImport) (ok bool, scanErr error) {
+	fileData.Split(splitByHands())
 
 	for fileData.Scan() {
 		handText := fileData.Text()
@@ -52,24 +49,32 @@ func parseHands(fileData *bufio.Scanner) ([]Hand, []error) {
 		summary, _ := parseHandSummary(handText)
 
 		if metadataErr != nil {
-			errs = append(errs, metadataErr)
+			handChan <- handImport{Hand{}, metadataErr}
 			continue // the hand lacks crucial metadata - skip
 		}
 
 		players, actions, actionErr := parseActions(handText)
 		if actionErr != nil {
-			errs = append(errs, errors.Join(fmt.Errorf(metadata.ID), actionErr))
+			handChan <- handImport{Hand{}, actionErr}
 			continue // the hand lacks crucial gameplay info - skip
 		}
 
-		hands = append(hands, Hand{
-			Metadata: metadata,
-			Players:  players,
-			Actions:  actions,
-			Summary:  summary,
-		})
+		handChan <- handImport{
+			Hand{
+				Metadata: metadata,
+				Players:  players,
+				Actions:  actions,
+				Summary:  summary,
+			},
+			nil,
+		}
 	}
-	return hands, errs
+
+	if err := fileData.Err(); err != nil {
+		return false, fmt.Errorf("Invalid input: %s", err)
+	}
+
+	return true, nil
 }
 
 // parseHandSummary pulls together the hand summary information and metadata.
@@ -345,7 +350,7 @@ func createHandScanner(h string) *bufio.Scanner {
 	return scanner
 }
 
-func SplitByHands() func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+func splitByHands() func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	delimiter := []byte(handInfoDelimiter)
 	delimLen := len(delimiter)
 

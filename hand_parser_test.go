@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -51,14 +52,12 @@ func TestParseHandSummary(t *testing.T) {
 
 	summary, _ := parseHandSummary(handText)
 
-	
 	summaryWant := Summary{
 		Pot:            0.36,
 		Rake:           0.01,
 		CommunityCards: []string{"Qc As 3d 2h"},
 	}
 
-	
 	if !reflect.DeepEqual(summary, summaryWant) {
 		t.Errorf("got %#v, but wanted %#v", summary, summaryWant)
 	}
@@ -154,7 +153,7 @@ func TestActionAmountFromText(t *testing.T) {
 
 	t.Run("player bets all-in", func(t *testing.T) {
 		cases := map[string]float64{
-			"Krawicz: bets $1.27 and is all-in": 1.27,
+			"Krawicz: bets $1.27 and is all-in":  1.27,
 			"windy886: bets $0.76 and is all-in": 0.76,
 		}
 
@@ -199,10 +198,16 @@ Dealt to KavarzE [Ad Ac]
 KavarzE: bets $2.33`)},
 		}
 
-		got, err := handsFromSessionFile(fileSystem, "zoom.txt")
+		handChan := make(chan handImport, 1)
 
-		want := []Hand{
-			{
+		var result bool
+		var fsErr error
+		result, fsErr = handsFromSessionFile(fileSystem, "zoom.txt", handChan)
+
+		got := <-handChan
+
+		want := handImport{
+			Hand{
 				Metadata{"123", time.Time{}.Local()},
 				[]Player{{Username: "KavarzE", Cards: "Ad Ac"}}, []Action{
 					{"KavarzE", 1, Preflop, Bets, 2.33},
@@ -211,26 +216,43 @@ KavarzE: bets $2.33`)},
 					nil, 0, 0,
 				},
 			},
+			nil,
 		}
 
-		if err != nil {
-			t.Fatal("got an error but didn't expect one: ", err)
+		if got.handErr != nil {
+			t.Fatal("got an error but didn't expect one: ", got.handErr)
 		}
 
-		if !reflect.DeepEqual(got, want) {
-			t.Errorf("got %#v wanted %#v", got, want)
+		if got.hand.Summary.CommunityCards != nil {
+			t.Errorf("Summary.Community Cards: got %#v wanted %#v", got, want)
+		}
+
+		if got.hand.Metadata.ID != want.hand.Metadata.ID {
+			t.Errorf("Metadata ID: got %#v wanted %#v", got, want)
+		}
+
+		if !result {
+			t.Fatal("got false result, expected true")
+		}
+
+		if fsErr != nil {
+			t.Fatal("got a filesystem error but didn't expect one: ", fsErr)
 		}
 	})
 
 	t.Run("error pathway", func(t *testing.T) {
 		fileSystem := failingFS{}
+		handChan := make(chan handImport, 10000)
+		ok, fsErr := handsFromSessionFile(fileSystem, "zoom.txt", handChan)
 
-		_, err := handsFromSessionFile(fileSystem, "zoom.txt")
-
-		if err == nil {
-			fmt.Print(err)
-			t.Fatal("expected an error but didn't get one!")
+		if fsErr == nil {
+			t.Fatal("expected an fsError but didn't get one!")
 		}
+
+		if ok {
+			t.Fatal("expected ok=false but was true!")
+		}
+
 	})
 }
 
@@ -242,13 +264,26 @@ Seat 1: test ($6000 in chips)
 Seat 2: test2 ($3000 in chips)
 Dealt to KavarzE [Ad Ac]
 KavarzE: bets $2.33`)
-		
+
 		bytesReader := bytes.NewReader(handData)
 		scanner := bufio.NewScanner(bytesReader)
 
-		got, _ := parseHands(scanner)
-		want := []Hand{
-			{
+		handCh := make(chan handImport, 10000)
+
+		ok, scanErr := parseHands(scanner, handCh)
+
+		got := <-handCh
+
+		if !ok {
+			t.Fatal("expected ok to be true but was false!")
+		}
+
+		if scanErr != nil {
+			t.Errorf("expected nil error but got %#v", scanErr)
+		}
+
+		want := handImport{
+			Hand{
 				Metadata{
 					"123", time.Time{}.Local(),
 				},
@@ -257,9 +292,10 @@ KavarzE: bets $2.33`)
 					nil, 0, 0,
 				},
 			},
+			nil,
 		}
 
-		if !reflect.DeepEqual(got, want) {
+		if !reflect.DeepEqual(got.hand, want.hand) {
 			t.Errorf("got %#v, wanted %#v", got, want)
 		}
 	})
@@ -269,15 +305,20 @@ KavarzE: bets $2.33`)
 		bytesReader := bytes.NewReader(handData)
 		scanner := bufio.NewScanner(bytesReader)
 
-		_, err := parseHands(scanner)
+		handChan := make(chan handImport, 10000)
 
-		if err == nil {
+		ok, scanErr := parseHands(scanner, handChan)
+
+		if !ok || scanErr != nil {
+			t.Errorf("wanted non-nil error and ok=true, but got error: %#v, ok: %#v ", scanErr, ok)
+		}
+
+		got := <-handChan
+
+		if got.handErr == nil {
 			t.Errorf("expected an error but didn't get one")
 		}
 
-		if !errors.Is(ErrNoHandID, errors.Unwrap(err[0])) {
-			t.Errorf("expected a %v type of error but got a different one: %v", ErrNoHandID, err)
-		}
 	})
 
 	t.Run("file with 3 hands, but one is corrupted", func(t *testing.T) {
@@ -285,16 +326,53 @@ KavarzE: bets $2.33`)
 		bytesReader := bytes.NewReader(handData)
 		scanner := bufio.NewScanner(bytesReader)
 
+		handChan := make(chan handImport, 10000)
 
-		hands, err := parseHands(scanner)
+		var wg sync.WaitGroup
+		var ok bool
+		var scanErr error
+		wg.Add(1)
 
-		if len(hands) != 2 {
-			// fmt.Printf("%#v\n\n %#v", hands, err)
-			t.Errorf("wanted 2 hands and 1 error but got %#v hands", len(hands))
+		go func() {
+			defer wg.Done()
+			ok, scanErr = parseHands(scanner, handChan)
+		}()
+
+		wg.Wait()
+		close(handChan)
+
+		if !ok || scanErr != nil {
+			t.Errorf("wanted non-nil error and not ok, but got error: %#v, ok: %#v ", scanErr, ok)
 		}
 
-		if len(err) != 1 {
-			t.Errorf("wanted 1 error but got %v", len(err))
+		var hands []Hand
+		var handErrs []error
+
+		for h := range handChan {
+			hands = append(hands, h.hand)
+			handErrs = append(handErrs, h.handErr)
+		}
+
+		var handCount int
+
+		for _, h := range hands {
+			if !reflect.DeepEqual(h, Hand{}) {
+				handCount++
+			}
+		}
+		if len(hands) != 3 {
+			t.Errorf("wanted 3 hands and 1 error but got %#v hands", len(hands))
+		}
+
+		var errCount int
+		for _, e := range handErrs {
+			if e != nil {
+				errCount++
+			}
+		}
+
+		if errCount != 1 {
+			t.Errorf("wanted 1 error but got %d, Hand Err Slice: %#v", errCount, handErrs)
 		}
 	})
 }
