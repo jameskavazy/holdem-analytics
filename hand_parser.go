@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/fs"
 	"regexp"
 	"slices"
 	"strconv"
@@ -14,8 +15,7 @@ import (
 
 // Delimiter and signifier constants for parsing hand files
 const (
-	handInfoDelimiter string = "\r\n\r\n\r\n"
-	// handInfoDelimiter       string = "\n\n\n"
+	handInfoDelimiter       string = "\nPokerStars "
 	newLine                 string = "\n"
 	flopSignifier           string = "*** FLOP ***"
 	turnSignifier           string = "*** TURN ***"
@@ -29,11 +29,46 @@ const (
 	ritSecondBoardSignifier string = "SECOND Board ["
 	potSizeSignifier        string = "Total pot "
 	rakeSizeSignifier       string = "Rake "
+	// TODO: Uncalled bet ($0.04) returned to Folding3bets
 )
+
+type handImport struct {
+	filePath string
+	hand     Hand
+	handErr  error
+	fileErr  bool
+}
+
+type FileResult struct {
+	Path        string
+	HandsParsed int
+	HandErrs    int
+	Err         error
+}
 
 var amountRegex = regexp.MustCompile(`\$(\d+(?:\.\d+)?)`)
 
-func parseHands(fileData *bufio.Scanner, handChan chan<- handImport) (ok bool, scanErr error) {
+func extractHandsFromFile(filesystem fs.FS, filename string, handChan chan<- handImport) (ok bool, fsErr error) {
+	file, err := filesystem.Open(filename)
+
+	if err != nil {
+		return false, err
+	}
+
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	result, scanErr := parseHands(filename, scanner, handChan)
+
+	if !result {
+		return false, scanErr
+	}
+
+	return true, nil
+}
+
+func parseHands(filename string, fileData *bufio.Scanner, handChan chan<- handImport) (ok bool, scanErr error) {
 	fileData.Split(splitByHands())
 
 	for fileData.Scan() {
@@ -49,24 +84,31 @@ func parseHands(fileData *bufio.Scanner, handChan chan<- handImport) (ok bool, s
 		summary, _ := parseHandSummary(handText)
 
 		if metadataErr != nil {
-			handChan <- handImport{Hand{}, metadataErr}
+			handChan <- handImport{filename, Hand{}, metadataErr, false}
 			continue // the hand lacks crucial metadata - skip
 		}
 
 		players, actions, actionErr := parseActions(handText)
 		if actionErr != nil {
-			handChan <- handImport{Hand{}, actionErr}
+			handChan <- handImport{
+				filePath: filename,
+				hand:     Hand{},
+				handErr:  actionErr,
+				fileErr:  false,
+			}
 			continue // the hand lacks crucial gameplay info - skip
 		}
 
 		handChan <- handImport{
-			Hand{
+			filePath: filename,
+			hand: Hand{
 				Metadata: metadata,
 				Players:  players,
 				Actions:  actions,
 				Summary:  summary,
 			},
-			nil,
+			handErr: nil,
+			fileErr: false,
 		}
 	}
 

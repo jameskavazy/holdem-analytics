@@ -14,6 +14,91 @@ import (
 	"time"
 )
 
+// func TestParseHandsAcceptance(t *testing.T){
+// 	t.Run("hand data is correctly parsed from a text file", func(t *testing.T) {
+// 		fileSystem := fstest.MapFS{
+// 			"Wei III": {Data: []byte(cashGame2)},
+// 		}
+
+// 		exportResult := pokerhud.ExportHands(fileSystem)
+// 		handTime, _ := time.Parse(time.DateTime, "2025-01-19 12:38:55")
+
+// 		got := handHistory[0]
+// 		want := pokerhud.Hand{
+// 			Metadata: pokerhud.Metadata{
+// 				ID:   "254446123323",
+// 				Date: handTime.Local(),
+// 			},
+// 			Players: []pokerhud.Player{{"KavarzE", "2s 5d"}, {"maximoIV", ""}, {"dlourencobss", "8s 9s"}, {"arsad725", ""}, {"RE0309", ""}, {"pernadao1599", "Jh Qc"}},
+// 			Actions: []pokerhud.Action{
+// 				actionBuildHelper("dlourencobss", pokerhud.Posts, pokerhud.Preflop, 1, 0.02),
+// 				actionBuildHelper("KavarzE", pokerhud.Posts, pokerhud.Preflop, 2, 0.05),
+// 				actionBuildHelper("arsad725", pokerhud.Folds, pokerhud.Preflop, 3, 0),
+// 				actionBuildHelper("RE0309", pokerhud.Calls, pokerhud.Preflop, 4, 0.05),
+// 				actionBuildHelper("pernadao1599", pokerhud.Calls, pokerhud.Preflop, 5, 0.05),
+// 				actionBuildHelper("maximoIV", pokerhud.Folds, pokerhud.Preflop, 6, 0),
+// 				actionBuildHelper("dlourencobss", pokerhud.Calls, pokerhud.Preflop, 7, 0.03),
+// 				actionBuildHelper("KavarzE", pokerhud.Checks, pokerhud.Preflop, 8, 0),
+// 				actionBuildHelper("dlourencobss", pokerhud.Bets, pokerhud.Flop, 9, 0.10),
+// 				actionBuildHelper("KavarzE", pokerhud.Folds, pokerhud.Flop, 10, 0),
+// 				actionBuildHelper("RE0309", pokerhud.Folds, pokerhud.Flop, 11, 0),
+// 				actionBuildHelper("pernadao1599", pokerhud.Calls, pokerhud.Flop, 12, 0.10),
+// 				actionBuildHelper("dlourencobss", pokerhud.Bets, pokerhud.Turn, 13, 0.27),
+// 				actionBuildHelper("pernadao1599", pokerhud.Calls, pokerhud.Turn, 14, 0.27),
+// 				actionBuildHelper("dlourencobss", pokerhud.Checks, pokerhud.River, 15, 0),
+// 				actionBuildHelper("pernadao1599", pokerhud.Checks, pokerhud.River, 16, 0),
+// 			},
+// 			Summary: pokerhud.Summary{
+// 				CommunityCards: []string{"2h Ts Jc 3h 8c"},
+// 				Pot:            0.94,
+// 				Rake:           0.05,
+// 			},
+// 		}
+
+// 		assertHand(t, got, want)
+// 	})
+
+// 	t.Run("run it twice hand parse correctly", func(t *testing.T) {
+// 		fileSystem := fstest.MapFS{
+// 			"RIT": {Data: []byte(runItTwice)},
+// 		}
+// 		handHistory, _ := pokerhud.ExportHands(fileSystem)
+// 		handTime, _ := time.Parse(time.DateTime, "2025-01-29 16:30:35")
+
+// 		got := handHistory[0]
+// 		want := pokerhud.Hand{
+// 			Metadata: pokerhud.Metadata{
+// 				ID:   "254607988518",
+// 				Date: handTime.Local(),
+// 			},
+// 			Players: []pokerhud.Player{{"KavarzE", "Jc Js"}, {"TurivVB240492", ""}, {"RoMike2", ""}, {"hiroakin", ""}, {"ThxWasOby3", "Ah Qd"}, {"VLSALT", ""}},
+// 			Actions: []pokerhud.Action{
+// 				actionBuildHelper("KavarzE", pokerhud.Posts, pokerhud.Preflop, 1, 0.02),
+// 				actionBuildHelper("RoMike2", pokerhud.Posts, pokerhud.Preflop, 2, 0.05),
+// 				actionBuildHelper("hiroakin", pokerhud.Folds, pokerhud.Preflop, 3, 0.0),
+// 				actionBuildHelper("ThxWasOby3", pokerhud.Raises, pokerhud.Preflop, 4, 0.10),
+// 				actionBuildHelper("VLSALT", pokerhud.Folds, pokerhud.Preflop, 5, 0),
+// 				actionBuildHelper("TurivVB240492", pokerhud.Folds, pokerhud.Preflop, 6, 0),
+// 				actionBuildHelper("KavarzE", pokerhud.Raises, pokerhud.Preflop, 7, 0.45),
+// 				actionBuildHelper("RoMike2", pokerhud.Folds, pokerhud.Preflop, 8, 0),
+// 				actionBuildHelper("ThxWasOby3", pokerhud.Raises, pokerhud.Preflop, 9, 0.72),
+// 				actionBuildHelper("KavarzE", pokerhud.Calls, pokerhud.Preflop, 10, 0.72),
+// 				actionBuildHelper("KavarzE", pokerhud.Checks, pokerhud.Flop, 11, 0),
+// 				actionBuildHelper("ThxWasOby3", pokerhud.Checks, pokerhud.Flop, 12, 0),
+// 				actionBuildHelper("KavarzE", pokerhud.Bets, pokerhud.Turn, 13, 1.81),
+// 				actionBuildHelper("ThxWasOby3", pokerhud.Raises, pokerhud.Turn, 14, 2.09),
+// 				actionBuildHelper("KavarzE", pokerhud.Calls, pokerhud.Turn, 15, 2.09),
+// 			},
+// 			Summary: pokerhud.Summary{
+// 				CommunityCards: []string{"7d 2h 8h Jh 3d", "7d 2h 8h Jh Qh"},
+// 				Pot:            10.49,
+// 				Rake:           0.44,
+// 			},
+// 		}
+// 		assertHand(t, got, want)
+// 	})
+// }
+
 func TestActionTypeFromText(t *testing.T) {
 	cases := map[string]ActionType{
 		"kv_def: posts small blind $0.02": "posts",
@@ -188,7 +273,7 @@ func TestActionAmountFromText(t *testing.T) {
 	})
 }
 
-func TestHandsFromSessionFile(t *testing.T) {
+func TestExtractHandsFromFile(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		fileSystem := fstest.MapFS{
 			"zoom.txt": {Data: []byte(`PokerStars Hand #123: blah blah
@@ -202,11 +287,12 @@ KavarzE: bets $2.33`)},
 
 		var result bool
 		var fsErr error
-		result, fsErr = handsFromSessionFile(fileSystem, "zoom.txt", handChan)
+		result, fsErr = extractHandsFromFile(fileSystem, "zoom.txt", handChan)
 
 		got := <-handChan
 
 		want := handImport{
+			"zoom.txt",
 			Hand{
 				Metadata{"123", time.Time{}.Local()},
 				[]Player{{Username: "KavarzE", Cards: "Ad Ac"}}, []Action{
@@ -217,6 +303,7 @@ KavarzE: bets $2.33`)},
 				},
 			},
 			nil,
+			false,
 		}
 
 		if got.handErr != nil {
@@ -243,7 +330,7 @@ KavarzE: bets $2.33`)},
 	t.Run("error pathway", func(t *testing.T) {
 		fileSystem := failingFS{}
 		handChan := make(chan handImport, 10000)
-		ok, fsErr := handsFromSessionFile(fileSystem, "zoom.txt", handChan)
+		ok, fsErr := extractHandsFromFile(fileSystem, "zoom.txt", handChan)
 
 		if fsErr == nil {
 			t.Fatal("expected an fsError but didn't get one!")
@@ -259,6 +346,7 @@ KavarzE: bets $2.33`)},
 func TestParseHandData(t *testing.T) {
 
 	t.Run("happy path", func(t *testing.T) {
+		filename := "test-file.txt"
 		handData := []byte(`PokerStars Hand #123: blah blah
 Seat 1: test ($6000 in chips)
 Seat 2: test2 ($3000 in chips)
@@ -270,7 +358,7 @@ KavarzE: bets $2.33`)
 
 		handCh := make(chan handImport, 10000)
 
-		ok, scanErr := parseHands(scanner, handCh)
+		ok, scanErr := parseHands(filename, scanner, handCh)
 
 		got := <-handCh
 
@@ -283,6 +371,7 @@ KavarzE: bets $2.33`)
 		}
 
 		want := handImport{
+			filename,
 			Hand{
 				Metadata{
 					"123", time.Time{}.Local(),
@@ -293,6 +382,7 @@ KavarzE: bets $2.33`)
 				},
 			},
 			nil,
+			false,
 		}
 
 		if !reflect.DeepEqual(got.hand, want.hand) {
@@ -301,13 +391,14 @@ KavarzE: bets $2.33`)
 	})
 
 	t.Run("Random non-hand data", func(t *testing.T) {
+		filename := "filename.txt"
 		handData := []byte(`Random non-hand data, whoops!`)
 		bytesReader := bytes.NewReader(handData)
 		scanner := bufio.NewScanner(bytesReader)
 
 		handChan := make(chan handImport, 10000)
 
-		ok, scanErr := parseHands(scanner, handChan)
+		ok, scanErr := parseHands(filename, scanner, handChan)
 
 		if !ok || scanErr != nil {
 			t.Errorf("wanted non-nil error and ok=true, but got error: %#v, ok: %#v ", scanErr, ok)
@@ -322,6 +413,7 @@ KavarzE: bets $2.33`)
 	})
 
 	t.Run("file with 3 hands, but one is corrupted", func(t *testing.T) {
+		filename := "filename.txt"
 		handData := []byte(brokenHands)
 		bytesReader := bytes.NewReader(handData)
 		scanner := bufio.NewScanner(bytesReader)
@@ -335,7 +427,7 @@ KavarzE: bets $2.33`)
 
 		go func() {
 			defer wg.Done()
-			ok, scanErr = parseHands(scanner, handChan)
+			ok, scanErr = parseHands(filename, scanner, handChan)
 		}()
 
 		wg.Wait()

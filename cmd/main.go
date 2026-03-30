@@ -1,24 +1,23 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"os"
 	"pokerhud"
-	"time"
 )
 
 func main() {
-	start := time.Now()
-
 	fileSystem := os.DirFS("C:\\Users\\james\\testfolder")
 	// fileSystem := os.DirFS("C:\\Users\\james\\AppData\\Local\\PokerStars.UK\\HandHistory\\KavarzE")
+	// fileSystem := os.DirFS("C:\\Coding\\pokerhud")
 
-	hands, handErrs := pokerhud.HandHistoryFromFS(fileSystem)
+	result := pokerhud.ExportHands(fileSystem)
 
-	elapsed := time.Since(start)
-	fmt.Printf("Processed %d hands in %s\n", len(hands), elapsed)
+	log.Printf(
+		"Successful Files: %#v\nFailedFiles: %#v\nFsError: %#v", result.SuccessCount(), result.FileErrorCount(), result.FsErr,
+	)
 
-	fmt.Printf("%#v\n", hands[0])
-	fmt.Println("Hands: ", len(hands))
-	fmt.Println("Errors: ", len(handErrs))
+	log.Printf("Hands parsed: %v", result.HandsCount())
+	log.Printf("Hand errs: %v", result.HandErrCount())
+
 }
