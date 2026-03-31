@@ -1,4 +1,4 @@
-package pokerhud
+package hands
 
 import (
 	"bufio"
@@ -32,20 +32,6 @@ const (
 	rakeSizeSignifier       string = "Rake "
 	// TODO: Uncalled bet ($0.04) returned to Folding3bets
 )
-
-type handImport struct {
-	filePath string
-	hand     Hand
-	handErr  error
-	fileErr  bool
-}
-
-type FileResult struct {
-	Path        string
-	HandsParsed int
-	HandErrs    int
-	Err         error
-}
 
 var amountRegex = regexp.MustCompile(`\$(\d+(?:\.\d+)?)`)
 

@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 	"os"
-	"pokerhud"
+	"pokerhud/hands"
 )
 
 func main() {
@@ -11,7 +11,7 @@ func main() {
 	// fileSystem := os.DirFS("C:\\Users\\james\\AppData\\Local\\PokerStars.UK\\HandHistory\\KavarzE")
 	// fileSystem := os.DirFS("C:\\Coding\\pokerhud")
 
-	result := pokerhud.ExportHands(fileSystem)
+	result := hands.ExportHands(fileSystem)
 
 	log.Printf(
 		"Successful Files: %#v\nFailedFiles: %#v\nFsError: %#v", result.SuccessCount(), result.FileErrorCount(), result.FsErr,

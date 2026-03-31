@@ -1,4 +1,4 @@
-package pokerhud
+package hands
 
 import (
 	"errors"

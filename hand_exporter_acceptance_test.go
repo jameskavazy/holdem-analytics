@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"pokerhud"
+	"pokerhud/hands"
 	"reflect"
 	"testing"
 	"testing/fstest"
@@ -17,7 +17,7 @@ func TestExportHands(t *testing.T) {
 			"cash game.txt": {Data: []byte(cashGame1)},
 		}
 
-		exportResult := pokerhud.ExportHands(fileSystem)
+		exportResult := hands.ExportHands(fileSystem)
 		successCount, failureCount := sumHandsHelper(exportResult.FileResults)
 
 		if successCount != 4 {
@@ -33,7 +33,7 @@ func TestExportHands(t *testing.T) {
 		fileSystem := fstest.MapFS{
 			"cash game.txt": {Data: []byte(brokenHandData)},
 		}
-		exportResult := pokerhud.ExportHands(fileSystem)
+		exportResult := hands.ExportHands(fileSystem)
 		_, failureCount := sumHandsHelper(exportResult.FileResults)
 
 		if failureCount != 1 {
@@ -44,7 +44,7 @@ func TestExportHands(t *testing.T) {
 	t.Run("failing filesystem", func(t *testing.T) {
 		fileSystem := failingFS{}
 
-		exportResult := pokerhud.ExportHands(fileSystem)
+		exportResult := hands.ExportHands(fileSystem)
 
 		if exportResult.FsErr == nil {
 			t.Fatal("expected an err but didn't get one")
@@ -61,14 +61,14 @@ func TestExportHands(t *testing.T) {
 			failOn: "failure.txt",
 		}
 
-		exportResult := pokerhud.ExportHands(fileSystem)
+		exportResult := hands.ExportHands(fileSystem)
 
 		count := 0
 		for _, r := range exportResult.FileResults {
 			if r.Err != nil {
 				count++
 			}
-			if r.Path == "failure.txt" && !errors.Is(r.Err, pokerhud.ErrFileNotParsable) {
+			if r.Path == "failure.txt" && !errors.Is(r.Err, hands.ErrFileNotParsable) {
 				t.Errorf("wanted ErrFileNotParsable error in failure.txt, but got %v", r.Err)
 			}
 		}
@@ -79,7 +79,7 @@ func TestExportHands(t *testing.T) {
 	})
 }
 
-func sumHandsHelper(exportResult []pokerhud.FileResult) (successCount, failureCount int) {
+func sumHandsHelper(exportResult []hands.FileResult) (successCount, failureCount int) {
 	successCount = 0
 	failureCount = 0
 	for _, f := range exportResult {
@@ -89,15 +89,15 @@ func sumHandsHelper(exportResult []pokerhud.FileResult) (successCount, failureCo
 	return successCount, failureCount
 }
 
-func assertHand(t *testing.T, got, want pokerhud.Hand) {
+func assertHand(t *testing.T, got, want hands.Hand) {
 	t.Helper()
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("wanted %#v, \n\ngot %#v", want, got)
 	}
 }
 
-func actionBuildHelper(playerName string, actionType pokerhud.ActionType, street pokerhud.Street, order int, amount float64) pokerhud.Action {
-	return pokerhud.Action{
+func actionBuildHelper(playerName string, actionType hands.ActionType, street hands.Street, order int, amount float64) hands.Action {
+	return hands.Action{
 		PlayerName: playerName,
 		ActionType: actionType,
 		Street:     street,
@@ -294,8 +294,6 @@ Seat 2: dlourencobss (button) folded before Flop (didn't bet)
 Seat 3: KavarzE (small blind) collected ($0.45)
 Seat 5: RE0309 (big blind) folded before Flop
 Seat 6: pernadao1599 folded before Flop (didn't bet)`
-
-
 
 const runItTwice string = `PokerStars Zoom Hand #254607988518:  Hold'em No Limit ($0.02/$0.05) - 2025/01/29 16:30:35 WET [2025/01/29 11:30:35 ET]
 Table 'Donati' 6-max Seat #1 is the button

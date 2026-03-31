@@ -1,4 +1,4 @@
-package pokerhud
+package hands
 
 // TODO - At some point we're going to want to make an interface of sorts so that we handle Pokerstars hands, Party poker hands. etc.
 // so Hand will actually be an interface and there'll be a pokerstarshand struct that implements hand interface... methods TBD.
@@ -82,9 +82,11 @@ type Metadata struct {
 }
 
 type Summary struct {
-	CommunityCards []string
+	CommunityCards []string //[][]Card
 	Pot            float64
 	Rake           float64
+	// UncalledBet    float64
+	// Winners        []Winner
 }
 
 // Action is a representation of individual actions made by players within a specific hand
@@ -105,8 +107,17 @@ type ActionType string
 // Player - a player in the hand
 type Player struct {
 	Username string
-	Cards    string
+	Cards    string //[]Card
+	// Seat      int
+	// ChipCount float64
 }
+
+type Card string
+
+// type Winner struct {
+// 	PlayerName string
+// 	Amount     float64
+// }
 
 func (t ActionType) String() string {
 	return string(t)

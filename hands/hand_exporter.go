@@ -1,4 +1,4 @@
-package pokerhud
+package hands
 
 import (
 	"errors"
@@ -26,6 +26,13 @@ func FileNotParsableErr(msg string) error {
 type ExportResult struct {
 	FileResults []FileResult
 	FsErr       error // filesystem error preventing any parsing
+}
+
+type FileResult struct {
+	Path        string
+	HandsParsed int
+	HandErrs    int
+	Err         error
 }
 
 func (e *ExportResult) FileErrorCount() int {
@@ -58,6 +65,13 @@ func (e *ExportResult) HandErrCount() int {
 
 func (e *ExportResult) SuccessCount() int {
 	return len(e.FileResults) - e.FileErrorCount()
+}
+
+type handImport struct {
+	filePath string
+	hand     Hand
+	handErr  error
+	fileErr  bool
 }
 
 type fileCounter struct {
