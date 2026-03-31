@@ -559,6 +559,7 @@ func TestPlayerCardsFromText(t *testing.T) {
 		{`Seat 4: VanillaLight (big blind) collected ($0.04)`, Player{"VanillaLight", ""}},
 		{`Seat 4: JSIrony collected ($0.23)`, Player{"JSIrony", ""}},
 		{`Seat 6: Imbastrol folded before Flop (didn't bet)`, Player{"Imbastrol", ""}},
+		{`Dealt to KavarzE [Js 5c]`, Player{"KavarzE", "Js 5c"}},
 	}
 
 	for _, tt := range cases {
@@ -571,14 +572,18 @@ func TestPlayerCardsFromText(t *testing.T) {
 			if strings.Contains(tt.test, "mucked [") {
 				prefix = "mucked ["
 			}
+			if strings.Contains(tt.test, "Dealt to") {
+				prefix = "["
+			}
 
-			got := playerInfoFromText(tt.test, prefix)
+			got, _, _ := playerInfoFromText(tt.test, prefix)
 
 			if got != tt.want {
 				t.Errorf("got %v but we wanted %v", got, tt.want)
 			}
 		})
 	}
+
 }
 
 func TestAmountFromText(t *testing.T) {

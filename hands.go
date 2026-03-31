@@ -45,6 +45,7 @@ const (
 var (
 	ErrFailToParseAction = errors.New("error no action found on text line")
 	ErrNoHandID          = errors.New("error no hand ID was found, unable parse. ignoring hand") // TODO: Perhaps make this a struct & add the file, hand info and error to struct.
+	ErrPlayerInfo        = errors.New("error could not parse player info, not enough fields on line. hand data is corrupt")
 	errNoCurrency        = errors.New("error parsing Action.Amount, expected currency'")
 )
 
@@ -55,12 +56,16 @@ func CurrencyError(msg string) error {
 
 // NoHandIDError  propagate an ErrNoHandID error with customised message msg.
 func NoHandIDError(msg string) error {
-	return fmt.Errorf("%s: %w", msg, ErrNoHandID)
+	return fmt.Errorf("%w: %s", ErrNoHandID, msg)
 }
 
 // ActionParseError propagate an ErrFailToParseAction error with customised message msg.
 func ActionParseError(msg string) error {
 	return fmt.Errorf("%w: %s", ErrFailToParseAction, msg)
+}
+
+func PlayerInfoError(msg string) error {
+	return fmt.Errorf("%w: %s", ErrPlayerInfo, msg)
 }
 
 // Hand represents a hand of poker
@@ -102,7 +107,6 @@ type Player struct {
 	Username string
 	Cards    string
 }
-
 
 func (t ActionType) String() string {
 	return string(t)

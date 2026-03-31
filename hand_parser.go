@@ -20,6 +20,7 @@ const (
 	flopSignifier           string = "*** FLOP ***"
 	turnSignifier           string = "*** TURN ***"
 	riverSignifier          string = "*** RIVER ***" //TODO players can run it twice... >  *** FIRST RIVER *** *** SECOND RIVER ***
+	heroPlayerSignifier     string = "Dealt to"
 	showedSignifier         string = "showed ["
 	muckedSignifier         string = "mucked ["
 	foldedSignifier         string = "folded"
@@ -170,7 +171,13 @@ func parseActions(handText string) ([]Player, []Action, error) {
 			actions = append(actions, actionResult)
 		}
 
-		if player, ok := parsePlayer(line); ok {
+		player, playerFound, parsePlayerErr := parsePlayer(line)
+
+		if parsePlayerErr != nil {
+			return nil, nil, parsePlayerErr
+		}
+
+		if playerFound {
 			if !slices.ContainsFunc(players, func(p Player) bool {
 				return p.Username == player.Username
 			}) {
@@ -194,7 +201,6 @@ func parseActionLine(line string, actionStreet *Street, order *int) (Action, boo
 		return Action{}, actionFound, nil
 	}
 
-	// TODO - add player struct to the action rather than just the player name?
 	playerName, playerErr := actionPlayerNameFromText(line)
 	amount, amtErr := actionAmountFromText(line)
 
@@ -287,31 +293,36 @@ func handIDFromText(handText string) string {
 	return ""
 }
 
-func parsePlayer(line string) (Player, bool) {
-	if strings.Contains(line, "Dealt to") {
-		return playerInfoFromText(line, "["), true
+func parsePlayer(line string) (Player, bool, error) {
+
+	if strings.Contains(line, heroPlayerSignifier) {
+		return playerInfoFromText(line, "[") // line will contain cards in [ ]
 	}
 
 	if strings.Contains(line, showedSignifier) {
-		return playerInfoFromText(line, showedSignifier), true
+		return playerInfoFromText(line, showedSignifier)
 	}
 
 	if strings.Contains(line, muckedSignifier) {
-		return playerInfoFromText(line, muckedSignifier), true
+		return playerInfoFromText(line, muckedSignifier)
 	}
 
 	if strings.Contains(line, foldedSignifier) {
-		return playerInfoFromText(line, ""), true
+		return playerInfoFromText(line, "")
 	}
 
 	if strings.Contains(line, collectedSignifier) {
-		return playerInfoFromText(line, ""), true
+		return playerInfoFromText(line, "")
 	}
 
-	return Player{}, false
+	return Player{}, false, nil
 }
 
-func playerInfoFromText(line string, cardPrefix string) Player {
+func playerInfoFromText(line string, cardPrefix string) (Player, bool, error) {
+	fields := strings.Fields(line)
+	if len(fields) < 4 {
+		return Player{}, false, PlayerInfoError(fmt.Sprintf("not enough fields on line %s, expected 4 fields", line))
+	}
 	playerName := strings.Fields(line)[2]
 	var cards string
 
@@ -320,9 +331,11 @@ func playerInfoFromText(line string, cardPrefix string) Player {
 	}
 
 	return Player{
-		Username: playerName,
-		Cards:    cards,
-	}
+			Username: playerName,
+			Cards:    cards,
+		},
+		true,
+		nil
 }
 
 func parseDateTime(timeString string) time.Time {
