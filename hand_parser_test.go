@@ -14,90 +14,101 @@ import (
 	"time"
 )
 
-// func TestParseHandsAcceptance(t *testing.T){
-// 	t.Run("hand data is correctly parsed from a text file", func(t *testing.T) {
-// 		fileSystem := fstest.MapFS{
-// 			"Wei III": {Data: []byte(cashGame2)},
-// 		}
+func TestParseHandsAcceptance(t *testing.T) {
+	t.Run("hand data is correctly parsed from a text file", func(t *testing.T) {
+		fileSystem := fstest.MapFS{
+			"Wei III": {Data: []byte(cashGame2)},
+		}
+		file, _ := fileSystem.Open("Wei III")
+		scanner := bufio.NewScanner(file)
+		channel := make(chan handImport, 1)
+		ok, scanErr := parseHands("Wei III ", scanner, channel)
 
-// 		exportResult := pokerhud.ExportHands(fileSystem)
-// 		handTime, _ := time.Parse(time.DateTime, "2025-01-19 12:38:55")
+		if !ok {
+			t.Fatal("wanted ok=true from parseHands but got false")
+		}
+		if scanErr != nil {
+			t.Errorf("wanted nil scanErr but got %v", scanErr)
+		}
 
-// 		got := handHistory[0]
-// 		want := pokerhud.Hand{
-// 			Metadata: pokerhud.Metadata{
-// 				ID:   "254446123323",
-// 				Date: handTime.Local(),
-// 			},
-// 			Players: []pokerhud.Player{{"KavarzE", "2s 5d"}, {"maximoIV", ""}, {"dlourencobss", "8s 9s"}, {"arsad725", ""}, {"RE0309", ""}, {"pernadao1599", "Jh Qc"}},
-// 			Actions: []pokerhud.Action{
-// 				actionBuildHelper("dlourencobss", pokerhud.Posts, pokerhud.Preflop, 1, 0.02),
-// 				actionBuildHelper("KavarzE", pokerhud.Posts, pokerhud.Preflop, 2, 0.05),
-// 				actionBuildHelper("arsad725", pokerhud.Folds, pokerhud.Preflop, 3, 0),
-// 				actionBuildHelper("RE0309", pokerhud.Calls, pokerhud.Preflop, 4, 0.05),
-// 				actionBuildHelper("pernadao1599", pokerhud.Calls, pokerhud.Preflop, 5, 0.05),
-// 				actionBuildHelper("maximoIV", pokerhud.Folds, pokerhud.Preflop, 6, 0),
-// 				actionBuildHelper("dlourencobss", pokerhud.Calls, pokerhud.Preflop, 7, 0.03),
-// 				actionBuildHelper("KavarzE", pokerhud.Checks, pokerhud.Preflop, 8, 0),
-// 				actionBuildHelper("dlourencobss", pokerhud.Bets, pokerhud.Flop, 9, 0.10),
-// 				actionBuildHelper("KavarzE", pokerhud.Folds, pokerhud.Flop, 10, 0),
-// 				actionBuildHelper("RE0309", pokerhud.Folds, pokerhud.Flop, 11, 0),
-// 				actionBuildHelper("pernadao1599", pokerhud.Calls, pokerhud.Flop, 12, 0.10),
-// 				actionBuildHelper("dlourencobss", pokerhud.Bets, pokerhud.Turn, 13, 0.27),
-// 				actionBuildHelper("pernadao1599", pokerhud.Calls, pokerhud.Turn, 14, 0.27),
-// 				actionBuildHelper("dlourencobss", pokerhud.Checks, pokerhud.River, 15, 0),
-// 				actionBuildHelper("pernadao1599", pokerhud.Checks, pokerhud.River, 16, 0),
-// 			},
-// 			Summary: pokerhud.Summary{
-// 				CommunityCards: []string{"2h Ts Jc 3h 8c"},
-// 				Pot:            0.94,
-// 				Rake:           0.05,
-// 			},
-// 		}
+		handTime, _ := time.Parse(time.DateTime, "2025-01-19 12:38:55")
 
-// 		assertHand(t, got, want)
-// 	})
+		got := <-channel
 
-// 	t.Run("run it twice hand parse correctly", func(t *testing.T) {
-// 		fileSystem := fstest.MapFS{
-// 			"RIT": {Data: []byte(runItTwice)},
-// 		}
-// 		handHistory, _ := pokerhud.ExportHands(fileSystem)
-// 		handTime, _ := time.Parse(time.DateTime, "2025-01-29 16:30:35")
+		want := Hand{
+			Metadata: Metadata{
+				ID:   "254446123323",
+				Date: handTime.Local(),
+			},
+			Players: []Player{{"KavarzE", "2s 5d"}, {"maximoIV", ""}, {"dlourencobss", "8s 9s"}, {"arsad725", ""}, {"RE0309", ""}, {"pernadao1599", "Jh Qc"}},
+			Actions: []Action{
+				actionBuildHelper("dlourencobss", Posts, Preflop, 1, 0.02),
+				actionBuildHelper("KavarzE", Posts, Preflop, 2, 0.05),
+				actionBuildHelper("arsad725", Folds, Preflop, 3, 0),
+				actionBuildHelper("RE0309", Calls, Preflop, 4, 0.05),
+				actionBuildHelper("pernadao1599", Calls, Preflop, 5, 0.05),
+				actionBuildHelper("maximoIV", Folds, Preflop, 6, 0),
+				actionBuildHelper("dlourencobss", Calls, Preflop, 7, 0.03),
+				actionBuildHelper("KavarzE", Checks, Preflop, 8, 0),
+				actionBuildHelper("dlourencobss", Bets, Flop, 9, 0.10),
+				actionBuildHelper("KavarzE", Folds, Flop, 10, 0),
+				actionBuildHelper("RE0309", Folds, Flop, 11, 0),
+				actionBuildHelper("pernadao1599", Calls, Flop, 12, 0.10),
+				actionBuildHelper("dlourencobss", Bets, Turn, 13, 0.27),
+				actionBuildHelper("pernadao1599", Calls, Turn, 14, 0.27),
+				actionBuildHelper("dlourencobss", Checks, River, 15, 0),
+				actionBuildHelper("pernadao1599", Checks, River, 16, 0),
+			},
+			Summary: Summary{
+				CommunityCards: []string{"2h Ts Jc 3h 8c"},
+				Pot:            0.94,
+				Rake:           0.05,
+			},
+		}
 
-// 		got := handHistory[0]
-// 		want := pokerhud.Hand{
-// 			Metadata: pokerhud.Metadata{
-// 				ID:   "254607988518",
-// 				Date: handTime.Local(),
-// 			},
-// 			Players: []pokerhud.Player{{"KavarzE", "Jc Js"}, {"TurivVB240492", ""}, {"RoMike2", ""}, {"hiroakin", ""}, {"ThxWasOby3", "Ah Qd"}, {"VLSALT", ""}},
-// 			Actions: []pokerhud.Action{
-// 				actionBuildHelper("KavarzE", pokerhud.Posts, pokerhud.Preflop, 1, 0.02),
-// 				actionBuildHelper("RoMike2", pokerhud.Posts, pokerhud.Preflop, 2, 0.05),
-// 				actionBuildHelper("hiroakin", pokerhud.Folds, pokerhud.Preflop, 3, 0.0),
-// 				actionBuildHelper("ThxWasOby3", pokerhud.Raises, pokerhud.Preflop, 4, 0.10),
-// 				actionBuildHelper("VLSALT", pokerhud.Folds, pokerhud.Preflop, 5, 0),
-// 				actionBuildHelper("TurivVB240492", pokerhud.Folds, pokerhud.Preflop, 6, 0),
-// 				actionBuildHelper("KavarzE", pokerhud.Raises, pokerhud.Preflop, 7, 0.45),
-// 				actionBuildHelper("RoMike2", pokerhud.Folds, pokerhud.Preflop, 8, 0),
-// 				actionBuildHelper("ThxWasOby3", pokerhud.Raises, pokerhud.Preflop, 9, 0.72),
-// 				actionBuildHelper("KavarzE", pokerhud.Calls, pokerhud.Preflop, 10, 0.72),
-// 				actionBuildHelper("KavarzE", pokerhud.Checks, pokerhud.Flop, 11, 0),
-// 				actionBuildHelper("ThxWasOby3", pokerhud.Checks, pokerhud.Flop, 12, 0),
-// 				actionBuildHelper("KavarzE", pokerhud.Bets, pokerhud.Turn, 13, 1.81),
-// 				actionBuildHelper("ThxWasOby3", pokerhud.Raises, pokerhud.Turn, 14, 2.09),
-// 				actionBuildHelper("KavarzE", pokerhud.Calls, pokerhud.Turn, 15, 2.09),
-// 			},
-// 			Summary: pokerhud.Summary{
-// 				CommunityCards: []string{"7d 2h 8h Jh 3d", "7d 2h 8h Jh Qh"},
-// 				Pot:            10.49,
-// 				Rake:           0.44,
-// 			},
-// 		}
-// 		assertHand(t, got, want)
-// 	})
-// }
+		assertHand(t, got.hand, want)
+	})
+
+	// t.Run("run it twice hand parse correctly", func(t *testing.T) {
+	// 	fileSystem := fstest.MapFS{
+	// 		"RIT": {Data: []byte(runItTwice)},
+	// 	}
+	// 	handHistory, _ := ExportHands(fileSystem)
+	// 	handTime, _ := time.Parse(time.DateTime, "2025-01-29 16:30:35")
+
+	// 	got := handHistory[0]
+	// 	want := Hand{
+	// 		Metadata: Metadata{
+	// 			ID:   "254607988518",
+	// 			Date: handTime.Local(),
+	// 		},
+	// 		Players: []Player{{"KavarzE", "Jc Js"}, {"TurivVB240492", ""}, {"RoMike2", ""}, {"hiroakin", ""}, {"ThxWasOby3", "Ah Qd"}, {"VLSALT", ""}},
+	// 		Actions: []Action{
+	// 			actionBuildHelper("KavarzE", Posts, Preflop, 1, 0.02),
+	// 			actionBuildHelper("RoMike2", Posts, Preflop, 2, 0.05),
+	// 			actionBuildHelper("hiroakin", Folds, Preflop, 3, 0.0),
+	// 			actionBuildHelper("ThxWasOby3", Raises, Preflop, 4, 0.10),
+	// 			actionBuildHelper("VLSALT", Folds, Preflop, 5, 0),
+	// 			actionBuildHelper("TurivVB240492", Folds, Preflop, 6, 0),
+	// 			actionBuildHelper("KavarzE", Raises, Preflop, 7, 0.45),
+	// 			actionBuildHelper("RoMike2", Folds, Preflop, 8, 0),
+	// 			actionBuildHelper("ThxWasOby3", Raises, Preflop, 9, 0.72),
+	// 			actionBuildHelper("KavarzE", Calls, Preflop, 10, 0.72),
+	// 			actionBuildHelper("KavarzE", Checks, Flop, 11, 0),
+	// 			actionBuildHelper("ThxWasOby3", Checks, Flop, 12, 0),
+	// 			actionBuildHelper("KavarzE", Bets, Turn, 13, 1.81),
+	// 			actionBuildHelper("ThxWasOby3", Raises, Turn, 14, 2.09),
+	// 			actionBuildHelper("KavarzE", Calls, Turn, 15, 2.09),
+	// 		},
+	// 		Summary: Summary{
+	// 			CommunityCards: []string{"7d 2h 8h Jh 3d", "7d 2h 8h Jh Qh"},
+	// 			Pot:            10.49,
+	// 			Rake:           0.44,
+	// 		},
+	// 	}
+	// 	assertHand(t, got, want)
+	// })
+}
 
 func TestActionTypeFromText(t *testing.T) {
 	cases := map[string]ActionType{
@@ -667,6 +678,23 @@ func (f failingFS) Open(name string) (fs.File, error) {
 	return nil, errors.New("oh no i always fail")
 }
 
+func assertHand(t *testing.T, got, want Hand) {
+	t.Helper()
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("wanted %#v, \n\ngot %#v", want, got)
+	}
+}
+
+func actionBuildHelper(playerName string, actionType ActionType, street Street, order int, amount float64) Action {
+	return Action{
+		PlayerName: playerName,
+		ActionType: actionType,
+		Street:     street,
+		Order:      order,
+		Amount:     amount,
+	}
+}
+
 const testHands string = `PokerStars Zoom Hand #254489598204:  Hold'em No Limit ($0.02/$0.05) - 2025/01/21 20:51:32 WET [2025/01/21 15:51:32 ET]
 Table 'Donati' 6-max Seat #1 is the button
 Seat 1: JDfq28 ($5.11 in chips)
@@ -820,3 +848,46 @@ Seat 3: KavarzE (big blind) folded before Flop
 Seat 4: ewpd folded before Flop (didn't bet)
 Seat 5: psbrets folded before Flop (didn't bet)
 Seat 6: AQsuit folded on the River`
+
+const cashGame2 string = `PokerStars Hand #254446123323:  Hold'em No Limit ($0.02/$0.05 USD) - 2025/01/19 12:38:55 WET [2025/01/19 7:38:55 ET]
+Table 'Wei III' 6-max Seat #1 is the button
+Seat 1: maximoIV ($5.20 in chips)
+Seat 2: dlourencobss ($4.94 in chips)
+Seat 3: KavarzE ($5 in chips)
+Seat 4: arsad725 ($5.49 in chips)
+Seat 5: RE0309 ($4.63 in chips)
+Seat 6: pernadao1599 ($3.43 in chips)
+dlourencobss: posts small blind $0.02
+KavarzE: posts big blind $0.05
+*** HOLE CARDS ***
+Dealt to KavarzE [2s 5d]
+arsad725: folds
+RE0309: calls $0.05
+pernadao1599: calls $0.05
+maximoIV: folds
+dlourencobss: calls $0.03
+KavarzE: checks
+*** FLOP *** [2h Ts Jc]
+dlourencobss: bets $0.10
+KavarzE: folds
+RE0309: folds
+pernadao1599: calls $0.10
+*** TURN *** [2h Ts Jc] [3h]
+dlourencobss: bets $0.27
+pernadao1599: calls $0.27
+*** RIVER *** [2h Ts Jc 3h] [8c]
+dlourencobss: checks
+pernadao1599: checks
+*** SHOW DOWN ***
+dlourencobss: shows [8s 9s] (a pair of Eights)
+pernadao1599: shows [Jh Qc] (a pair of Jacks)
+pernadao1599 collected $0.89 from pot
+*** SUMMARY ***
+Total pot $0.94 | Rake $0.05
+Board [2h Ts Jc 3h 8c]
+Seat 1: maximoIV (button) folded before Flop (didn't bet)
+Seat 2: dlourencobss (small blind) showed [8s 9s] and lost with a pair of Eights
+Seat 3: KavarzE (big blind) folded on the Flop
+Seat 4: arsad725 folded before Flop (didn't bet)
+Seat 5: RE0309 folded on the Flop
+Seat 6: pernadao1599 showed [Jh Qc] and won ($0.89) with a pair of Jacks`

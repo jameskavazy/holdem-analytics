@@ -295,48 +295,7 @@ Seat 3: KavarzE (small blind) collected ($0.45)
 Seat 5: RE0309 (big blind) folded before Flop
 Seat 6: pernadao1599 folded before Flop (didn't bet)`
 
-const cashGame2 string = `PokerStars Hand #254446123323:  Hold'em No Limit ($0.02/$0.05 USD) - 2025/01/19 12:38:55 WET [2025/01/19 7:38:55 ET]
-Table 'Wei III' 6-max Seat #1 is the button
-Seat 1: maximoIV ($5.20 in chips)
-Seat 2: dlourencobss ($4.94 in chips)
-Seat 3: KavarzE ($5 in chips)
-Seat 4: arsad725 ($5.49 in chips)
-Seat 5: RE0309 ($4.63 in chips)
-Seat 6: pernadao1599 ($3.43 in chips)
-dlourencobss: posts small blind $0.02
-KavarzE: posts big blind $0.05
-*** HOLE CARDS ***
-Dealt to KavarzE [2s 5d]
-arsad725: folds
-RE0309: calls $0.05
-pernadao1599: calls $0.05
-maximoIV: folds
-dlourencobss: calls $0.03
-KavarzE: checks
-*** FLOP *** [2h Ts Jc]
-dlourencobss: bets $0.10
-KavarzE: folds
-RE0309: folds
-pernadao1599: calls $0.10
-*** TURN *** [2h Ts Jc] [3h]
-dlourencobss: bets $0.27
-pernadao1599: calls $0.27
-*** RIVER *** [2h Ts Jc 3h] [8c]
-dlourencobss: checks
-pernadao1599: checks
-*** SHOW DOWN ***
-dlourencobss: shows [8s 9s] (a pair of Eights)
-pernadao1599: shows [Jh Qc] (a pair of Jacks)
-pernadao1599 collected $0.89 from pot
-*** SUMMARY ***
-Total pot $0.94 | Rake $0.05
-Board [2h Ts Jc 3h 8c]
-Seat 1: maximoIV (button) folded before Flop (didn't bet)
-Seat 2: dlourencobss (small blind) showed [8s 9s] and lost with a pair of Eights
-Seat 3: KavarzE (big blind) folded on the Flop
-Seat 4: arsad725 folded before Flop (didn't bet)
-Seat 5: RE0309 folded on the Flop
-Seat 6: pernadao1599 showed [Jh Qc] and won ($0.89) with a pair of Jacks`
+
 
 const runItTwice string = `PokerStars Zoom Hand #254607988518:  Hold'em No Limit ($0.02/$0.05) - 2025/01/29 16:30:35 WET [2025/01/29 11:30:35 ET]
 Table 'Donati' 6-max Seat #1 is the button
