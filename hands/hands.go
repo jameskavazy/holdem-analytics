@@ -77,16 +77,17 @@ type Hand struct {
 }
 
 type Metadata struct {
-	ID   string
-	Date time.Time
+	ID         string
+	Date       time.Time
+	ButtonSeat int
 }
 
 type Summary struct {
-	CommunityCards []string //[][]Card
+	CommunityCards CommunityCards
 	Pot            float64
 	Rake           float64
-	// UncalledBet    float64
-	// Winners        []Winner
+	UncalledBet    float64
+	Winners        []Winner
 }
 
 // Action is a representation of individual actions made by players within a specific hand
@@ -106,18 +107,24 @@ type ActionType string
 
 // Player - a player in the hand
 type Player struct {
-	Username string
-	Cards    string //[]Card
-	// Seat      int
-	// ChipCount float64
+	Username  string
+	Cards     [2]Card
+	Seat      int
+	ChipCount float64
 }
 
 type Card string
 
-// type Winner struct {
-// 	PlayerName string
-// 	Amount     float64
-// }
+type CommunityCards struct {
+	Flop  [3]Card
+	Turn  Card
+	River Card
+}
+
+type Winner struct {
+	PlayerName string
+	Amount     float64
+}
 
 func (t ActionType) String() string {
 	return string(t)

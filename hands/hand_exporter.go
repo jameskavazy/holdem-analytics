@@ -145,6 +145,12 @@ func collectResults(handsChannel <-chan handImport) ExportResult {
 			counter[h.filePath].err = FileNotParsableErr("could not open file")
 		} else if h.handErr != nil {
 			counter[h.filePath].failure++
+			
+			handID := h.hand.Metadata.ID
+			if handID == "" {
+				handID = "no hand id"
+			}
+			log.Printf("got an error parsing hand %v in %v: %v", handID, h.filePath, h.handErr.Error())
 		} else {
 			counter[h.filePath].success++
 		}

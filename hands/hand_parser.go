@@ -3,6 +3,7 @@ package hands
 import (
 	"bufio"
 	"bytes"
+	"cmp"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -20,7 +21,7 @@ const (
 	flopSignifier           string = "*** FLOP ***"
 	turnSignifier           string = "*** TURN ***"
 	riverSignifier          string = "*** RIVER ***" //TODO players can run it twice... >  *** FIRST RIVER *** *** SECOND RIVER ***
-	heroPlayerSignifier     string = "Dealt to"
+	heroHandPrefix          string = "Dealt to"
 	showedSignifier         string = "showed ["
 	muckedSignifier         string = "mucked ["
 	foldedSignifier         string = "folded"
@@ -34,6 +35,7 @@ const (
 )
 
 var amountRegex = regexp.MustCompile(`\$(\d+(?:\.\d+)?)`)
+var seatIntRegex = regexp.MustCompile(`^Seat (\d+): `)
 
 func extractHandsFromFile(filesystem fs.FS, filename string, handChan chan<- handImport) (ok bool, fsErr error) {
 	file, err := filesystem.Open(filename)
@@ -108,7 +110,7 @@ func parseHands(filename string, fileData *bufio.Scanner, handChan chan<- handIm
 
 // parseHandSummary pulls together the hand summary information and metadata.
 func parseHandSummary(handText string) (Summary, error) {
-	board := parseCommunityCards(handText)
+	// _ := parseCommunityCards(handText)
 	pot, potErr := amountFromText(handText, potSizeSignifier)
 	if potErr != nil {
 		return Summary{}, potErr
@@ -118,7 +120,7 @@ func parseHandSummary(handText string) (Summary, error) {
 		return Summary{}, rakeErr
 	}
 
-	summary := Summary{board, pot, rake}
+	summary := Summary{CommunityCards{}, pot, rake, 0.00, []Winner{}} // PLACEHOLDER TODO!!!!
 	return summary, nil
 }
 
@@ -129,7 +131,7 @@ func parseMetaData(handText string) (Metadata, error) {
 		return Metadata{}, NoHandIDError(fmt.Sprintf("in hand %#v", shortHand))
 	}
 	dateTime := parseDateTime(dateTimeFromText(handText))
-	metadata := Metadata{handID, dateTime}
+	metadata := Metadata{handID, dateTime, 0}
 	return metadata, nil
 }
 
@@ -137,7 +139,7 @@ func parseMetaData(handText string) (Metadata, error) {
 // a non-nil error if an error was received from the parse helper functions.
 func parseActions(handText string) ([]Player, []Action, error) {
 
-	var players []Player
+	playersMap := map[string]*Player{}
 	var actions []Action
 	var street = Preflop
 	var order = 0
@@ -164,16 +166,27 @@ func parseActions(handText string) ([]Player, []Action, error) {
 		}
 
 		if playerFound {
-			if !slices.ContainsFunc(players, func(p Player) bool {
-				return p.Username == player.Username
-			}) {
-				// Hero player is parsed before summary, so skip to avoid duplicate
-				players = append(players, player)
-			}
+			updateOrAddPlayer(playersMap, player)
 		}
 	}
 
-	return players, actions, nil
+	playersSlice := convertToSlice(playersMap)
+
+	return playersSlice, actions, nil
+}
+
+// converToSlice takes a playerMap and returns a []Player ordered by seat position
+func convertToSlice(playersMap map[string]*Player) []Player {
+	playersSlice := make([]Player, len(playersMap))
+	i := 0
+	for _, v := range playersMap {
+		playersSlice[i] = *v
+		i++
+	}
+	slices.SortFunc(playersSlice, func(a, b Player) int {
+		return cmp.Compare(a.Seat, b.Seat)
+	})
+	return playersSlice
 }
 
 // parseActionLine checks a line of text for a poker action and if found returns an action, along
@@ -252,6 +265,10 @@ func actionAmountFromText(line string) (float64, error) {
 		return 0, nil
 	}
 
+	return extractAmount(line)
+}
+
+func extractAmount(line string) (float64, error) {
 	matches := amountRegex.FindStringSubmatch(line)
 	if len(matches) < 2 {
 		return 0, CurrencyError(fmt.Sprintf("on line %v", line))
@@ -279,10 +296,17 @@ func handIDFromText(handText string) string {
 	return ""
 }
 
+// TODO : this is horrible - let's refactor out into separate functions for each
 func parsePlayer(line string) (Player, bool, error) {
 
-	if strings.Contains(line, heroPlayerSignifier) {
-		return playerInfoFromText(line, "[") // line will contain cards in [ ]
+	// Found chips, extract name, seat num and chips
+	if strings.Contains(line, " in chips)") {
+		return extractChipsAndSeatInt(line)
+	}
+
+	// Found hero hand extracting name, cards
+	if strings.Contains(line, heroHandPrefix) {
+		return heroHandFromText(line)
 	}
 
 	if strings.Contains(line, showedSignifier) {
@@ -293,15 +317,31 @@ func parsePlayer(line string) (Player, bool, error) {
 		return playerInfoFromText(line, muckedSignifier)
 	}
 
-	if strings.Contains(line, foldedSignifier) {
-		return playerInfoFromText(line, "")
-	}
-
-	if strings.Contains(line, collectedSignifier) {
+	if strings.Contains(line, foldedSignifier) || strings.Contains(line, collectedSignifier) {
 		return playerInfoFromText(line, "")
 	}
 
 	return Player{}, false, nil
+}
+
+func extractChipsAndSeatInt(line string) (Player, bool, error) {
+	seatInt, seatIntErr := seatIntFromText(line)
+	playerName := substringBetween(line, ": ", " (")
+	chipCount, chipCountErr := extractAmount(line)
+
+	if seatIntErr != nil {
+		return Player{}, false, seatIntErr
+	}
+	if chipCountErr != nil {
+		return Player{}, false, chipCountErr
+	}
+	return Player{
+			Username:  playerName,
+			Seat:      int(seatInt),
+			ChipCount: chipCount,
+		},
+		true,
+		nil
 }
 
 func playerInfoFromText(line string, cardPrefix string) (Player, bool, error) {
@@ -310,10 +350,16 @@ func playerInfoFromText(line string, cardPrefix string) (Player, bool, error) {
 		return Player{}, false, PlayerInfoError(fmt.Sprintf("not enough fields on line %s, expected 4 fields", line))
 	}
 	playerName := strings.Fields(line)[2]
-	var cards string
+	cards := [2]Card{}
 
 	if cardPrefix != "" {
-		cards = substringBetween(line, cardPrefix, "]")
+		fields := strings.Fields(substringBetween(line, cardPrefix, "]"))
+		if len(fields) >= 2 {
+			cards[0] = Card(fields[0])
+			cards[1] = Card(fields[1])
+		} else {
+			return Player{}, false, PlayerInfoError(fmt.Sprintf("not enough fields on line %s, expected 2 fields for cards", line))
+		}
 	}
 
 	return Player{
@@ -322,6 +368,42 @@ func playerInfoFromText(line string, cardPrefix string) (Player, bool, error) {
 		},
 		true,
 		nil
+}
+
+func heroHandFromText(line string) (Player, bool, error) {
+	fields := strings.Fields(line)
+	if len(fields) != 5 {
+		return Player{}, false, PlayerInfoError(fmt.Sprintf("could not extract hero name, not enough fields on line %s, expected 5 fields", line))
+	}
+	playerName := strings.Fields(line)[2]
+	cards := [2]Card{}
+
+	cardFields := strings.Fields(substringBetween(line, "[", "]"))
+	if len(cardFields) >= 2 {
+		cards[0] = Card(cardFields[0])
+		cards[1] = Card(cardFields[1])
+	} else {
+		return Player{}, false, PlayerInfoError(fmt.Sprintf("not enough fields on line %s, expected 2 fields for cards", line))
+	}
+
+	return Player{
+			Username: playerName,
+			Cards:    cards,
+		},
+		true,
+		nil
+
+}
+
+func seatIntFromText(line string) (int64, error) {
+	matches := seatIntRegex.FindStringSubmatch(line)
+	if matches == nil {
+		return 0, PlayerInfoError(fmt.Sprintf("no matches for seatInt found on line %v", line))
+	}
+	if len(matches) != 2 {
+		return 0, PlayerInfoError(fmt.Sprintf("failed to extract player seat, multiple matches were found on line %s", line))
+	}
+	return strconv.ParseInt(matches[1], 10, 32)
 }
 
 func parseDateTime(timeString string) time.Time {
@@ -361,6 +443,15 @@ func amountFromText(handText, sizePrefix string) (float64, error) {
 		return 0, fmt.Errorf("unable to parse float parsing: %w", err)
 	}
 	return amtFloat, nil
+}
+
+func updateOrAddPlayer(players map[string]*Player, player Player) {
+	if p, ok := players[player.Username]; ok {
+		p.Cards = player.Cards
+	} else {
+		newPlayer := player
+		players[player.Username] = &newPlayer
+	}
 }
 
 // Substring between returns the substring between the first instance of characters start and end.
