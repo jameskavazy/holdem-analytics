@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"reflect"
+	"testing/fstest"
 
 	// "strings"
 	"sync"
@@ -16,101 +17,113 @@ import (
 	"time"
 )
 
-// func TestParseHandsAcceptance(t *testing.T) {
-// 	t.Run("hand data is correctly parsed from a text file", func(t *testing.T) {
-// 		fileSystem := fstest.MapFS{
-// 			"Wei III": {Data: []byte(cashGame2)},
-// 		}
-// 		file, _ := fileSystem.Open("Wei III")
-// 		scanner := bufio.NewScanner(file)
-// 		channel := make(chan handImport, 1)
-// 		ok, scanErr := parseHands("Wei III ", scanner, channel)
+func TestParseHandsAcceptance(t *testing.T) {
+	t.Run("hand data is correctly parsed from a text file", func(t *testing.T) {
+		fileSystem := fstest.MapFS{
+			"Wei III": {Data: []byte(cashGame2)},
+		}
+		file, _ := fileSystem.Open("Wei III")
+		scanner := bufio.NewScanner(file)
+		channel := make(chan handImport, 1)
+		ok, scanErr := parseHands("Wei III ", scanner, channel)
 
-// 		if !ok {
-// 			t.Fatal("wanted ok=true from parseHands but got false")
-// 		}
-// 		if scanErr != nil {
-// 			t.Errorf("wanted nil scanErr but got %v", scanErr)
-// 		}
+		if !ok {
+			t.Fatal("wanted ok=true from parseHands but got false")
+		}
+		if scanErr != nil {
+			t.Errorf("wanted nil scanErr but got %v", scanErr)
+		}
 
-// 		handTime, _ := time.Parse(time.DateTime, "2025-01-19 12:38:55")
+		handTime, _ := time.Parse(time.DateTime, "2025-01-19 12:38:55")
 
-// 		got := <-channel
+		got := <-channel
 
-// 		want := Hand{
-// 			Metadata: Metadata{
-// 				ID:   "254446123323",
-// 				Date: handTime.Local(),
-// 			},
-// 			Players: []Player{{"KavarzE", "2s 5d"}, {"maximoIV", ""}, {"dlourencobss", "8s 9s"}, {"arsad725", ""}, {"RE0309", ""}, {"pernadao1599", "Jh Qc"}},
-// 			Actions: []Action{
-// 				actionBuildHelper("dlourencobss", Posts, Preflop, 1, 0.02),
-// 				actionBuildHelper("KavarzE", Posts, Preflop, 2, 0.05),
-// 				actionBuildHelper("arsad725", Folds, Preflop, 3, 0),
-// 				actionBuildHelper("RE0309", Calls, Preflop, 4, 0.05),
-// 				actionBuildHelper("pernadao1599", Calls, Preflop, 5, 0.05),
-// 				actionBuildHelper("maximoIV", Folds, Preflop, 6, 0),
-// 				actionBuildHelper("dlourencobss", Calls, Preflop, 7, 0.03),
-// 				actionBuildHelper("KavarzE", Checks, Preflop, 8, 0),
-// 				actionBuildHelper("dlourencobss", Bets, Flop, 9, 0.10),
-// 				actionBuildHelper("KavarzE", Folds, Flop, 10, 0),
-// 				actionBuildHelper("RE0309", Folds, Flop, 11, 0),
-// 				actionBuildHelper("pernadao1599", Calls, Flop, 12, 0.10),
-// 				actionBuildHelper("dlourencobss", Bets, Turn, 13, 0.27),
-// 				actionBuildHelper("pernadao1599", Calls, Turn, 14, 0.27),
-// 				actionBuildHelper("dlourencobss", Checks, River, 15, 0),
-// 				actionBuildHelper("pernadao1599", Checks, River, 16, 0),
-// 			},
-// 			Summary: Summary{
-// 				CommunityCards: []string{"2h Ts Jc 3h 8c"},
-// 				Pot:            0.94,
-// 				Rake:           0.05,
-// 			},
-// 		}
+		// 		Seat 1: maximoIV ($5.20 in chips)
+		// Seat 2: dlourencobss ($4.94 in chips)
+		// Seat 3: KavarzE ($5 in chips)
+		// Seat 4: arsad725 ($5.49 in chips)
+		// Seat 5: RE0309 ($4.63 in chips)
+		// Seat 6: pernadao1599 ($3.43 in chips)
 
-// 		assertHand(t, got.hand, want)
-// 	})
+		want := Hand{
+			Metadata: Metadata{
+				ID:         "254446123323",
+				Date:       handTime.Local(),
+				ButtonSeat: 1,
+			},
+			Players: []Player{{"maximoIV", [2]Card{}, 1, 5.2}, {"dlourencobss", [2]Card{"8s", "9s"}, 2, 4.94}, {"KavarzE", [2]Card{"2s", "5d"}, 3, 5}, {"arsad725", [2]Card{}, 4, 5.49}, {"RE0309", [2]Card{}, 5, 4.63}, {"pernadao1599", [2]Card{"Jh", "Qc"}, 6, 3.43}},
+			Actions: []Action{
+				actionBuildHelper("dlourencobss", Posts, Preflop, 1, 0.02),
+				actionBuildHelper("KavarzE", Posts, Preflop, 2, 0.05),
+				actionBuildHelper("arsad725", Folds, Preflop, 3, 0),
+				actionBuildHelper("RE0309", Calls, Preflop, 4, 0.05),
+				actionBuildHelper("pernadao1599", Calls, Preflop, 5, 0.05),
+				actionBuildHelper("maximoIV", Folds, Preflop, 6, 0),
+				actionBuildHelper("dlourencobss", Calls, Preflop, 7, 0.03),
+				actionBuildHelper("KavarzE", Checks, Preflop, 8, 0),
+				actionBuildHelper("dlourencobss", Bets, Flop, 9, 0.10),
+				actionBuildHelper("KavarzE", Folds, Flop, 10, 0),
+				actionBuildHelper("RE0309", Folds, Flop, 11, 0),
+				actionBuildHelper("pernadao1599", Calls, Flop, 12, 0.10),
+				actionBuildHelper("dlourencobss", Bets, Turn, 13, 0.27),
+				actionBuildHelper("pernadao1599", Calls, Turn, 14, 0.27),
+				actionBuildHelper("dlourencobss", Checks, River, 15, 0),
+				actionBuildHelper("pernadao1599", Checks, River, 16, 0),
+			},
+			Summary: Summary{
+				CommunityCards: CommunityCards{
+					Flop:  [3]Card{"2h", "Ts", "Jc"},
+					Turn:  Card("3h"),
+					River: Card("8c"),
+				},
+				Pot:  0.94,
+				Rake: 0.05,
+			},
+		}
 
-// 	// t.Run("run it twice hand parse correctly", func(t *testing.T) {
-// 	// 	fileSystem := fstest.MapFS{
-// 	// 		"RIT": {Data: []byte(runItTwice)},
-// 	// 	}
-// 	// 	handHistory, _ := ExportHands(fileSystem)
-// 	// 	handTime, _ := time.Parse(time.DateTime, "2025-01-29 16:30:35")
+		assertHand(t, got.hand, want)
+	})
 
-// 	// 	got := handHistory[0]
-// 	// 	want := Hand{
-// 	// 		Metadata: Metadata{
-// 	// 			ID:   "254607988518",
-// 	// 			Date: handTime.Local(),
-// 	// 		},
-// 	// 		Players: []Player{{"KavarzE", "Jc Js"}, {"TurivVB240492", ""}, {"RoMike2", ""}, {"hiroakin", ""}, {"ThxWasOby3", "Ah Qd"}, {"VLSALT", ""}},
-// 	// 		Actions: []Action{
-// 	// 			actionBuildHelper("KavarzE", Posts, Preflop, 1, 0.02),
-// 	// 			actionBuildHelper("RoMike2", Posts, Preflop, 2, 0.05),
-// 	// 			actionBuildHelper("hiroakin", Folds, Preflop, 3, 0.0),
-// 	// 			actionBuildHelper("ThxWasOby3", Raises, Preflop, 4, 0.10),
-// 	// 			actionBuildHelper("VLSALT", Folds, Preflop, 5, 0),
-// 	// 			actionBuildHelper("TurivVB240492", Folds, Preflop, 6, 0),
-// 	// 			actionBuildHelper("KavarzE", Raises, Preflop, 7, 0.45),
-// 	// 			actionBuildHelper("RoMike2", Folds, Preflop, 8, 0),
-// 	// 			actionBuildHelper("ThxWasOby3", Raises, Preflop, 9, 0.72),
-// 	// 			actionBuildHelper("KavarzE", Calls, Preflop, 10, 0.72),
-// 	// 			actionBuildHelper("KavarzE", Checks, Flop, 11, 0),
-// 	// 			actionBuildHelper("ThxWasOby3", Checks, Flop, 12, 0),
-// 	// 			actionBuildHelper("KavarzE", Bets, Turn, 13, 1.81),
-// 	// 			actionBuildHelper("ThxWasOby3", Raises, Turn, 14, 2.09),
-// 	// 			actionBuildHelper("KavarzE", Calls, Turn, 15, 2.09),
-// 	// 		},
-// 	// 		Summary: Summary{
-// 	// 			CommunityCards: []string{"7d 2h 8h Jh 3d", "7d 2h 8h Jh Qh"},
-// 	// 			Pot:            10.49,
-// 	// 			Rake:           0.44,
-// 	// 		},
-// 	// 	}
-// 	// 	assertHand(t, got, want)
-// 	// })
-// }
+	// t.Run("run it twice hand parse correctly", func(t *testing.T) {
+	// 	fileSystem := fstest.MapFS{
+	// 		"RIT": {Data: []byte(runItTwice)},
+	// 	}
+	// 	handHistory, _ := ExportHands(fileSystem)
+	// 	handTime, _ := time.Parse(time.DateTime, "2025-01-29 16:30:35")
+
+	// 	got := handHistory[0]
+	// 	want := Hand{
+	// 		Metadata: Metadata{
+	// 			ID:   "254607988518",
+	// 			Date: handTime.Local(),
+	// 		},
+	// 		Players: []Player{{"KavarzE", "Jc Js"}, {"TurivVB240492", ""}, {"RoMike2", ""}, {"hiroakin", ""}, {"ThxWasOby3", "Ah Qd"}, {"VLSALT", ""}},
+	// 		Actions: []Action{
+	// 			actionBuildHelper("KavarzE", Posts, Preflop, 1, 0.02),
+	// 			actionBuildHelper("RoMike2", Posts, Preflop, 2, 0.05),
+	// 			actionBuildHelper("hiroakin", Folds, Preflop, 3, 0.0),
+	// 			actionBuildHelper("ThxWasOby3", Raises, Preflop, 4, 0.10),
+	// 			actionBuildHelper("VLSALT", Folds, Preflop, 5, 0),
+	// 			actionBuildHelper("TurivVB240492", Folds, Preflop, 6, 0),
+	// 			actionBuildHelper("KavarzE", Raises, Preflop, 7, 0.45),
+	// 			actionBuildHelper("RoMike2", Folds, Preflop, 8, 0),
+	// 			actionBuildHelper("ThxWasOby3", Raises, Preflop, 9, 0.72),
+	// 			actionBuildHelper("KavarzE", Calls, Preflop, 10, 0.72),
+	// 			actionBuildHelper("KavarzE", Checks, Flop, 11, 0),
+	// 			actionBuildHelper("ThxWasOby3", Checks, Flop, 12, 0),
+	// 			actionBuildHelper("KavarzE", Bets, Turn, 13, 1.81),
+	// 			actionBuildHelper("ThxWasOby3", Raises, Turn, 14, 2.09),
+	// 			actionBuildHelper("KavarzE", Calls, Turn, 15, 2.09),
+	// 		},
+	// 		Summary: Summary{
+	// 			CommunityCards: []string{"7d 2h 8h Jh 3d", "7d 2h 8h Jh Qh"},
+	// 			Pot:            10.49,
+	// 			Rake:           0.44,
+	// 		},
+	// 	}
+	// 	assertHand(t, got, want)
+	// })
+}
 
 func TestActionTypeFromText(t *testing.T) {
 	cases := map[string]ActionType{
@@ -309,11 +322,11 @@ func TestActionAmountFromText(t *testing.T) {
 // 			Hand{
 // 				Metadata{"123", time.Time{}.Local(), 0},
 // 				[]Player{
-// 					{Username: "KavarzE"}, 
-// 					{Cards: [2]Card{"Ad", "Ac"}}, 
+// 					{Username: "KavarzE"},
+// 					{Cards: [2]Card{"Ad", "Ac"}},
 // 					{Seat: 2},
 // 					{ChipCount: 3000},
-// 				}, 
+// 				},
 // 				[]Action{
 // 					{"KavarzE", 1, Preflop, Bets, 2.33},
 // 				},
@@ -324,7 +337,6 @@ func TestActionAmountFromText(t *testing.T) {
 // 			nil,
 // 			false,
 // 		}
-		
 
 // 		if got.handErr != nil {
 // 			t.Fatal("got an error but didn't expect one: ", got.handErr)
