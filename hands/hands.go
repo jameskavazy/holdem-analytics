@@ -83,7 +83,7 @@ type Metadata struct {
 }
 
 type Summary struct {
-	CommunityCards CommunityCards
+	CommunityCards [2]CommunityCards
 	Pot            float64
 	Rake           float64
 	UncalledBet    float64

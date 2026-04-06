@@ -8,8 +8,6 @@ import (
 	"io/fs"
 	"reflect"
 	"testing/fstest"
-
-	// "strings"
 	"sync"
 	"testing"
 
@@ -38,18 +36,11 @@ func TestParseHandsAcceptance(t *testing.T) {
 
 		got := <-channel
 
-		// 		Seat 1: maximoIV ($5.20 in chips)
-		// Seat 2: dlourencobss ($4.94 in chips)
-		// Seat 3: KavarzE ($5 in chips)
-		// Seat 4: arsad725 ($5.49 in chips)
-		// Seat 5: RE0309 ($4.63 in chips)
-		// Seat 6: pernadao1599 ($3.43 in chips)
-
 		want := Hand{
 			Metadata: Metadata{
 				ID:         "254446123323",
 				Date:       handTime.Local(),
-				ButtonSeat: 1,
+				ButtonSeat: 0, // will be one
 			},
 			Players: []Player{{"maximoIV", [2]Card{}, 1, 5.2}, {"dlourencobss", [2]Card{"8s", "9s"}, 2, 4.94}, {"KavarzE", [2]Card{"2s", "5d"}, 3, 5}, {"arsad725", [2]Card{}, 4, 5.49}, {"RE0309", [2]Card{}, 5, 4.63}, {"pernadao1599", [2]Card{"Jh", "Qc"}, 6, 3.43}},
 			Actions: []Action{
@@ -71,11 +62,11 @@ func TestParseHandsAcceptance(t *testing.T) {
 				actionBuildHelper("pernadao1599", Checks, River, 16, 0),
 			},
 			Summary: Summary{
-				CommunityCards: CommunityCards{
+				CommunityCards: [2]CommunityCards{{
 					Flop:  [3]Card{"2h", "Ts", "Jc"},
 					Turn:  Card("3h"),
 					River: Card("8c"),
-				},
+				}, {}},
 				Pot:  0.94,
 				Rake: 0.05,
 			},
@@ -601,50 +592,63 @@ func TestSeatIntFromText(t *testing.T) {
 	}
 }
 
-// func TestPlayerCardsFromText(t *testing.T) {
-// 	cases := []struct {
-// 		test string
-// 		want Player
-// 	}{
-// 		{`Seat 2: KavarzE (small blind) showed [Jc Js] and won ($5.03) with three of a kind, Jacks, and lost with three of a kind, Jacks`, Player{"KavarzE", [2]Card{"Jc", "Js"}, 2, 0} },
-// 		{`Seat 5: ThxWasOby3 showed [Ah Qd] and lost with high card Ace, and won ($5.02) with a flush, Ace high`, Player{"ThxWasOby3", "Ah Qd"}},
-// 		{`Seat 6: KavarzE mucked [6s 6d]`, Player{"KavarzE", "6s 6d"}},
-// 		{`Seat 5: ilbeback2017 showed [Tc Td] and won ($1.37) with a pair of Tens`, Player{"ilbeback2017", "Tc Td"}},
-// 		{`Seat 1: acsy797 (button) mucked [Jd Ks]`, Player{"acsy797", "Jd Ks"}},
-// 		{`Seat 1: KavarzE (big blind) collected ($0.04)`, Player{"KavarzE", ""}},
-// 		{`Seat 4: VanillaLight (big blind) collected ($0.04)`, Player{"VanillaLight", ""}},
-// 		{`Seat 4: JSIrony collected ($0.23)`, Player{"JSIrony", ""}},
-// 		{`Seat 6: Imbastrol folded before Flop (didn't bet)`, Player{"Imbastrol", ""}},
-// 		{`Dealt to KavarzE [Js 5c]`, Player{"KavarzE", "Js 5c"}},
-// 		{`Seat 6: KavarzE ($1.97 in chips) `, Player{"KavarzE", [2]Card{"Jc", "Js"}, 6, 1.97}}
-// 	}
+func TestCommunityCardsFromText(t *testing.T) {
+	handText := testHands
+	got := communityCardsFromText(handText, boardSignifier, "]")
 
-// 	for _, tt := range cases {
-// 		t.Run(tt.test, func(t *testing.T) {
+	if got.Flop != [3]Card{"Qc", "As", "3d"} {
+		t.Errorf("wanted %#v community cards but got %#v", [3]Card{"Qc", "As", "3d"}, got.Flop)
+	}
 
-// 			var prefix string
-// 			if strings.Contains(tt.test, "showed [") {
-// 				prefix = "showed ["
-// 			}
-// 			if strings.Contains(tt.test, "mucked [") {
-// 				prefix = "mucked ["
-// 			}
-// 			if strings.Contains(tt.test, "Dealt to") {
-// 				prefix = "["
-// 			}
-// 			if strings.Contains(tt.test, "Seat ") {
+	if got.Turn != Card("2h") {
+		t.Errorf("wanted %v community cards but got %v", Card("2h"), got.Turn)
+	}
+}
 
-// 			}
+func TestPlayerCardsFromText(t *testing.T) {
+	cases := []struct {
+		test string
+		want Player
+	}{
+		{`Seat 2: KavarzE (small blind) showed [Jc Js] and won ($5.03) with three of a kind, Jacks, and lost with three of a kind, Jacks`, Player{"KavarzE", [2]Card{"Jc", "Js"}, 0, 0} },
+		// {`Seat 5: ThxWasOby3 showed [Ah Qd] and lost with high card Ace, and won ($5.02) with a flush, Ace high`, Player{"ThxWasOby3", "Ah Qd"}},
+		// {`Seat 6: KavarzE mucked [6s 6d]`, Player{"KavarzE", "6s 6d"}},
+		// {`Seat 5: ilbeback2017 showed [Tc Td] and won ($1.37) with a pair of Tens`, Player{"ilbeback2017", "Tc Td"}},
+		{`Seat 1: acsy797 (button) mucked [Jd Ks]`, Player{"acsy797", [2]Card{"Jd", "Ks"}, 0, 0}},
+		// {`Seat 1: KavarzE (big blind) collected ($0.04)`, Player{"KavarzE", ""}},
+		// {`Seat 4: VanillaLight (big blind) collected ($0.04)`, Player{"VanillaLight", ""}},
+		// {`Seat 4: JSIrony collected ($0.23)`, Player{"JSIrony", ""}},
+		// {`Seat 6: Imbastrol folded before Flop (didn't bet)`, Player{"Imbastrol", ""}},
+		{`Dealt to KavarzE [Js 5c]`, Player{"KavarzE", [2]Card{"Js", "5c"}, 0, 0}},
+		{`Seat 6: KavarzE ($1.97 in chips) `, Player{"KavarzE", [2]Card{}, 6, 1.97}},
+	}
 
-// 			got, _, _ := playerInfoFromText(tt.test, prefix)
+	for _, tt := range cases {
+		t.Run(tt.test, func(t *testing.T) {
 
-// 			if got != tt.want {
-// 				t.Errorf("got %v but we wanted %v", got, tt.want)
-// 			}
-// 		})
-// 	}
+			// var prefix string
+			// if strings.Contains(tt.test, "showed [") {
+			// 	prefix = "showed ["
+			// }
+			// if strings.Contains(tt.test, "mucked [") {
+			// 	prefix = "mucked ["
+			// }
+			// if strings.Contains(tt.test, "Dealt to") {
+			// 	prefix = "["
+			// }
+			// if strings.Contains(tt.test, "Seat ") {
 
-// }
+			// }
+
+			got, _, _ := parsePlayer(tt.test)
+
+			if got != tt.want {
+				t.Errorf("got %v but we wanted %v", got, tt.want)
+			}
+		})
+	}
+
+}
 
 func TestAmountFromText(t *testing.T) {
 

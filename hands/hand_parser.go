@@ -110,7 +110,7 @@ func parseHands(filename string, fileData *bufio.Scanner, handChan chan<- handIm
 
 // parseHandSummary pulls together the hand summary information and metadata.
 func parseHandSummary(handText string) (Summary, error) {
-	// _ := parseCommunityCards(handText)
+	communityCards := parseCommunityCards(handText)
 	pot, potErr := amountFromText(handText, potSizeSignifier)
 	if potErr != nil {
 		return Summary{}, potErr
@@ -120,7 +120,7 @@ func parseHandSummary(handText string) (Summary, error) {
 		return Summary{}, rakeErr
 	}
 
-	summary := Summary{CommunityCards{}, pot, rake, 0.00, []Winner{}} // PLACEHOLDER TODO!!!!
+	summary := Summary{communityCards, pot, rake, 0.00, nil} // PLACEHOLDER TODO!!!!
 	return summary, nil
 }
 
@@ -165,7 +165,7 @@ func parseActions(handText string) ([]Player, []Action, error) {
 			return nil, nil, parsePlayerErr
 		}
 
-		if playerFound {
+		if playerFound { // TODO: Cards for hero are overwritten
 			updateOrAddPlayer(playersMap, player)
 		}
 	}
@@ -223,21 +223,39 @@ func parseActionLine(line string, actionStreet *Street, order *int) (Action, boo
 	}, actionFound, nil
 }
 
-func parseCommunityCards(handText string) []string {
+func parseCommunityCards(handText string) [2]CommunityCards {
 	if strings.Contains(handText, "Hand was run twice") {
 		firstBoard := communityCardsFromText(handText, ritFirstBoardSignifier, "]")
 		secondBoard := communityCardsFromText(handText, ritSecondBoardSignifier, "]")
-		return []string{firstBoard, secondBoard}
+		return [2]CommunityCards{firstBoard, secondBoard}
 	}
 	if strings.Contains(handText, boardSignifier) {
 		board := communityCardsFromText(handText, boardSignifier, "]")
-		return []string{board}
+		return [2]CommunityCards{board, {}}
 	}
-	return nil
+	return [2]CommunityCards{}
 }
 
-func communityCardsFromText(handText, boardStart, boardEnd string) string {
-	return substringBetween(handText, boardStart, boardEnd)
+func communityCardsFromText(handText, boardStart, boardEnd string) CommunityCards {
+
+	boardString := substringBetween(handText, boardStart, boardEnd)
+	fields := strings.Fields(boardString)
+
+	cc := CommunityCards{}
+
+	if len(fields) >= 3 {
+		cc.Flop = [3]Card{Card(fields[0]), Card(fields[1]), Card(fields[2])}
+	}
+
+	if len(fields) >= 4 {
+		cc.Turn = Card(fields[3])
+	}
+
+	if len(fields) >= 5 {
+		cc.River = Card(fields[4])
+	}
+
+	return cc
 }
 
 func actionTypeFromText(line string) (ActionType, bool) {
@@ -296,7 +314,6 @@ func handIDFromText(handText string) string {
 	return ""
 }
 
-// TODO : this is horrible - let's refactor out into separate functions for each
 func parsePlayer(line string) (Player, bool, error) {
 
 	// Found chips, extract name, seat num and chips
