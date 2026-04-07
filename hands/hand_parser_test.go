@@ -38,7 +38,7 @@ func TestParseHandsAcceptance(t *testing.T) {
 			Metadata: Metadata{
 				ID:         "254446123323",
 				Date:       handTime.Local(),
-				ButtonSeat: 0, // will be one
+				ButtonSeat: 0,
 			},
 			Players: []Player{{"maximoIV", [2]Card{}, 1, 5.2}, {"dlourencobss", [2]Card{"8s", "9s"}, 2, 4.94}, {"KavarzE", [2]Card{"2s", "5d"}, 3, 5}, {"arsad725", [2]Card{}, 4, 5.49}, {"RE0309", [2]Card{}, 5, 4.63}, {"pernadao1599", [2]Card{"Jh", "Qc"}, 6, 3.43}},
 			Actions: []Action{
@@ -67,6 +67,9 @@ func TestParseHandsAcceptance(t *testing.T) {
 				}, {}},
 				Pot:  0.94,
 				Rake: 0.05,
+				Winners: []Winner{
+					{"pernadao1599", 0.89},
+				},
 			},
 		}
 
@@ -161,6 +164,9 @@ func TestParseHandSummary(t *testing.T) {
 				Card(""),
 			},
 			{}},
+		Winners: []Winner{
+			{"kv_def", 0.35},
+		},
 	}
 
 	if !reflect.DeepEqual(summary, summaryWant) {
@@ -613,9 +619,6 @@ func TestPlayerCardsFromText(t *testing.T) {
 		want Player
 	}{
 		{`Seat 2: KavarzE (small blind) showed [Jc Js] and won ($5.03) with three of a kind, Jacks, and lost with three of a kind, Jacks`, Player{"KavarzE", [2]Card{"Jc", "Js"}, 0, 0}},
-		// {`Seat 5: ThxWasOby3 showed [Ah Qd] and lost with high card Ace, and won ($5.02) with a flush, Ace high`, Player{"ThxWasOby3", "Ah Qd"}},
-		// {`Seat 6: KavarzE mucked [6s 6d]`, Player{"KavarzE", "6s 6d"}},
-		// {`Seat 5: ilbeback2017 showed [Tc Td] and won ($1.37) with a pair of Tens`, Player{"ilbeback2017", "Tc Td"}},
 		{`Seat 1: acsy797 (button) mucked [Jd Ks]`, Player{"acsy797", [2]Card{"Jd", "Ks"}, 0, 0}},
 		// {`Seat 1: KavarzE (big blind) collected ($0.04)`, Player{"KavarzE", ""}},
 		// {`Seat 4: VanillaLight (big blind) collected ($0.04)`, Player{"VanillaLight", ""}},
@@ -765,6 +768,34 @@ func TestConvertToSlice(t *testing.T) {
 	if got[2].Username != "Javormy" {
 		t.Errorf("wanted username: 'Javormy' in position 2 in slice, but got username of %v", got[2].Username)
 	}
+}
+
+func TestWinnerFromHandText(t *testing.T) {
+
+	cases := []struct {
+		test string
+		want Winner
+	}{
+
+		{"Seat 2: kv_def (small blind) collected ($0.35)", Winner{"kv_def", 0.35}},
+		{"Seat 4: lukebartlett showed [Qd Kc] and won ($2.99) with two pair, Kings and Queens", Winner{"lukebartlett", 2.99}},
+	}
+
+	for _, tt := range cases {
+		got, err := winnerFromLine(tt.test)
+		if err != nil {
+			t.Fatalf("got an error but got: %v", err)
+		}
+
+		if got.PlayerName != tt.want.PlayerName {
+			t.Errorf("test case: '%v':\n wanted %v as winning player but got %v ", tt.test, tt.want.PlayerName, got.PlayerName)
+		}
+
+		if got.Amount != tt.want.Amount {
+			t.Errorf("test case: '%v':\n wanted %v as winning amount but got %v ", tt.test, tt.want.Amount, got.Amount)
+		}
+	}
+
 }
 
 type failingFS struct{}
@@ -986,3 +1017,46 @@ Seat 3: KavarzE (big blind) folded on the Flop
 Seat 4: arsad725 folded before Flop (didn't bet)
 Seat 5: RE0309 folded on the Flop
 Seat 6: pernadao1599 showed [Jh Qc] and won ($0.89) with a pair of Jacks`
+
+const multipleWinnersHand string = `PokerStars Zoom Hand #257507021156:  Hold'em No Limit ($0.01/$0.02) - 2025/08/27 17:58:57 WET [2025/08/27 12:58:57 ET]
+Table 'Halley' 6-max Seat #1 is the button
+Seat 1: KavarzE ($2 in chips) 
+Seat 2: gepard35 ($2.83 in chips) 
+Seat 3: Javis1311 ($1 in chips) 
+Seat 4: ricardo_riro ($2 in chips) 
+Seat 5: ferchaPok ($2.04 in chips) 
+Seat 6: ChipInvadr ($5.53 in chips) 
+gepard35: posts small blind $0.01
+Javis1311: posts big blind $0.02
+*** HOLE CARDS ***
+Dealt to KavarzE [6d Th]
+ricardo_riro: folds 
+ferchaPok: folds 
+ChipInvadr: folds 
+KavarzE: folds 
+gepard35: raises $0.04 to $0.06
+Javis1311: calls $0.04
+*** FLOP *** [Jd Ah 8s]
+gepard35: bets $0.05
+Javis1311: calls $0.05
+*** TURN *** [Jd Ah 8s] [Ts]
+gepard35: bets $0.08
+Javis1311: calls $0.08
+*** RIVER *** [Jd Ah 8s Ts] [8c]
+gepard35: bets $0.28
+Javis1311: raises $0.53 to $0.81 and is all-in
+gepard35: calls $0.53
+*** SHOW DOWN ***
+Javis1311: shows [Ad Td] (two pair, Aces and Tens)
+gepard35: shows [Ac Tc] (two pair, Aces and Tens)
+gepard35 collected $0.97 from pot
+Javis1311 collected $0.96 from pot
+*** SUMMARY ***
+Total pot $2 | Rake $0.07 
+Board [Jd Ah 8s Ts 8c]
+Seat 1: KavarzE (button) folded before Flop (didn't bet)
+Seat 2: gepard35 (small blind) showed [Ac Tc] and won ($0.97) with two pair, Aces and Tens
+Seat 3: Javis1311 (big blind) showed [Ad Td] and won ($0.96) with two pair, Aces and Tens
+Seat 4: ricardo_riro folded before Flop (didn't bet)
+Seat 5: ferchaPok folded before Flop (didn't bet)
+Seat 6: ChipInvadr folded before Flop (didn't bet)`

@@ -84,7 +84,7 @@ func parseHands(filename string, fileData *bufio.Scanner, handChan chan<- handIm
 			continue // the hand lacks crucial metadata - skip
 		}
 
-		players, actions, actionErr := parseActions(handText)
+		players, actions, winners, actionErr := parseActionLines(handText)
 		if actionErr != nil {
 			handChan <- handImport{
 				filePath: filename,
@@ -94,6 +94,8 @@ func parseHands(filename string, fileData *bufio.Scanner, handChan chan<- handIm
 			}
 			continue // the hand lacks crucial gameplay info - skip
 		}
+
+		summary.Winners = winners
 
 		handChan <- handImport{
 			filePath: filename,
@@ -118,10 +120,12 @@ func parseHands(filename string, fileData *bufio.Scanner, handChan chan<- handIm
 // parseHandSummary pulls together the hand summary information and metadata.
 func parseHandSummary(handText string) (Summary, error) {
 	communityCards := parseCommunityCards(handText)
+
 	pot, potErr := amountFromText(handText, potSizeSignifier)
 	if potErr != nil {
 		return Summary{}, potErr
 	}
+
 	rake, rakeErr := amountFromText(handText, rakeSizeSignifier)
 	if rakeErr != nil {
 		return Summary{}, rakeErr
@@ -142,12 +146,13 @@ func parseMetaData(handText string) (Metadata, error) {
 	return metadata, nil
 }
 
-// parseActions scans the hand data line by line and generates a slice of players and actions. Returns
+// parseActionLines scans the hand data line by line and generates a slice of players and actions. Returns
 // a non-nil error if an error was received from the parse helper functions.
-func parseActions(handText string) ([]Player, []Action, error) {
+func parseActionLines(handText string) ([]Player, []Action, []Winner, error) {
 
 	playersMap := map[string]*Player{}
 	var actions []Action
+	var winners []Winner
 	var street = Preflop
 	var order = 0
 
@@ -159,7 +164,7 @@ func parseActions(handText string) ([]Player, []Action, error) {
 		actionResult, actionFound, actionErr := parseActionLine(line, &street, &order)
 
 		if actionErr != nil {
-			return nil, nil, actionErr
+			return nil, nil, nil, actionErr
 		}
 
 		if actionFound {
@@ -169,17 +174,27 @@ func parseActions(handText string) ([]Player, []Action, error) {
 		player, playerFound, parsePlayerErr := parsePlayer(line)
 
 		if parsePlayerErr != nil {
-			return nil, nil, parsePlayerErr
+			return nil, nil, nil, parsePlayerErr
 		}
 
 		if playerFound { // TODO: Cards for hero are overwritten
 			updateOrAddPlayer(playersMap, player)
 		}
+
+		winner, winnerErr := winnerFromLine(line)
+		if winnerErr != nil {
+			return nil, nil, nil, winnerErr
+		}
+
+		if winner.PlayerName != "" {
+			winners = append(winners, winner)
+		}
+
 	}
 
 	playersSlice := convertToSlice(playersMap)
 
-	return playersSlice, actions, nil
+	return playersSlice, actions, winners, nil
 }
 
 // converToSlice takes a playerMap and returns a []Player ordered by seat position
@@ -418,6 +433,40 @@ func heroHandFromText(line string) (Player, bool, error) {
 
 }
 
+func winnerFromLine(line string) (Winner, error) {
+
+	triggers := []string{"collected (", "won ("}
+
+	for _, t := range triggers {
+		if !strings.Contains(line, t) {
+			continue
+		}
+
+		amountWithCurrency := substringBetween(line, t, ")")
+		amount, amountErr := extractAmount(amountWithCurrency)
+
+		if amountErr != nil {
+			return Winner{}, amountErr
+		}
+
+		contentBeforeTrigger := substringBetween(line, ": ", t)
+
+		firstSpace := strings.Index(contentBeforeTrigger, " ")
+		var playerName string
+		if firstSpace == -1 {
+			return Winner{}, fmt.Errorf("a winner was detected but could not find name of winner on line: %v", contentBeforeTrigger)
+		}
+
+		playerName = contentBeforeTrigger[:firstSpace]
+
+		return Winner{
+			PlayerName: playerName,
+			Amount:     amount,
+		}, nil
+	}
+	return Winner{}, nil
+}
+
 func seatIntFromText(line string) (int64, error) {
 	matches := seatIntRegex.FindStringSubmatch(line)
 	if matches == nil {
@@ -480,7 +529,7 @@ func updateOrAddPlayer(players map[string]*Player, player Player) {
 }
 
 // Substring between returns the substring between the first instance of characters start and end.
-// If text does not contain the original text is returned unchanged
+// If text does not contain either the start or end string, the original text is returned unchanged
 func substringBetween(text, start, end string) string {
 	if !strings.Contains(text, start) || !strings.Contains(text, end) {
 		return text
