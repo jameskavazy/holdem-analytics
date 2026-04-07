@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"io/fs"
 	"reflect"
-	"testing/fstest"
 	"sync"
 	"testing"
+	"testing/fstest"
 
 	// "testing/fstest"
 	"time"
@@ -149,21 +149,26 @@ func TestActionTypeFromText(t *testing.T) {
 	}
 }
 
-// func TestParseHandSummary(t *testing.T) {
-// 	handText := testHands
+func TestParseHandSummary(t *testing.T) {
+	handText := testHands
 
-// 	summary, _ := parseHandSummary(handText)
+	summary, _ := parseHandSummary(handText)
 
-// 	summaryWant := Summary{
-// 		Pot:            0.36,
-// 		Rake:           0.01,
-// 		CommunityCards: []string{"Qc As 3d 2h"},
-// 	}
+	summaryWant := Summary{
+		Pot:  0.36,
+		Rake: 0.01,
+		CommunityCards: [2]CommunityCards{
+			{[3]Card{"Qc", "As", "3d"},
+				Card("2h"),
+				Card(""),
+			},
+			{}},
+	}
 
-// 	if !reflect.DeepEqual(summary, summaryWant) {
-// 		t.Errorf("got %#v, but wanted %#v", summary, summaryWant)
-// 	}
-// }
+	if !reflect.DeepEqual(summary, summaryWant) {
+		t.Errorf("got %#v, but wanted %#v", summary, summaryWant)
+	}
+}
 
 func TestParseMetadata(t *testing.T) {
 	handText := testHands
@@ -290,128 +295,127 @@ func TestActionAmountFromText(t *testing.T) {
 	})
 }
 
-// func TestExtractHandsFromFile(t *testing.T) {
-// 	t.Run("happy path", func(t *testing.T) {
-// 		fileSystem := fstest.MapFS{
-// 			"zoom.txt": {Data: []byte(`PokerStars Hand #123: blah blah
-// Seat 1: test ($6000 in chips)
-// Seat 2: KavarzE ($3000 in chips)
-// Dealt to KavarzE [Ad Ac]
-// KavarzE: bets $2.33`)},
-// 		}
+func TestExtractHandsFromFile(t *testing.T) {
+	t.Run("happy path", func(t *testing.T) {
+		fileSystem := fstest.MapFS{
+			"zoom.txt": {Data: []byte(`PokerStars Hand #123: blah blah
+Seat 1: test ($6000 in chips)
+Seat 2: KavarzE ($3000 in chips)
+Dealt to KavarzE [Ad Ac]
+KavarzE: bets $2.33`)},
+		}
 
-// 		handChan := make(chan handImport, 1)
+		handChan := make(chan handImport, 1)
 
-// 		var result bool
-// 		var fsErr error
-// 		result, fsErr = extractHandsFromFile(fileSystem, "zoom.txt", handChan)
+		var result bool
+		var fsErr error
+		result, fsErr = extractHandsFromFile(fileSystem, "zoom.txt", handChan)
 
-// 		got := <-handChan
+		got := <-handChan
 
-// 		want := handImport{
-// 			"zoom.txt",
-// 			Hand{
-// 				Metadata{"123", time.Time{}.Local(), 0},
-// 				[]Player{
-// 					{Username: "KavarzE"},
-// 					{Cards: [2]Card{"Ad", "Ac"}},
-// 					{Seat: 2},
-// 					{ChipCount: 3000},
-// 				},
-// 				[]Action{
-// 					{"KavarzE", 1, Preflop, Bets, 2.33},
-// 				},
-// 				Summary{
-// 					nil, 0, 0,
-// 				},
-// 			},
-// 			nil,
-// 			false,
-// 		}
+		want := handImport{
+			"zoom.txt",
+			Hand{
+				Metadata{"123", time.Time{}.Local(), 0},
+				[]Player{
+					{Username: "KavarzE"},
+					{Cards: [2]Card{"Ad", "Ac"}},
+					{Seat: 2},
+					{ChipCount: 3000},
+				},
+				[]Action{
+					{"KavarzE", 1, Preflop, Bets, 2.33},
+				},
+				Summary{
+					[2]CommunityCards{}, 0, 0, 0, []Winner{},
+				},
+			},
+			nil,
+			false,
+		}
 
-// 		if got.handErr != nil {
-// 			t.Fatal("got an error but didn't expect one: ", got.handErr)
-// 		}
+		if got.handErr != nil {
+			t.Fatal("got an error but didn't expect one: ", got.handErr)
+		}
 
-// 		if got.hand.Summary.CommunityCards != nil {
-// 			t.Errorf("Summary.Community Cards: got %#v wanted %#v", got, want)
-// 		}
+		if got.hand.Summary.CommunityCards != [2]CommunityCards{} {
+			t.Errorf("Summary.Community Cards: got %#v wanted %#v", got, want)
+		}
 
-// 		if got.hand.Metadata.ID != want.hand.Metadata.ID {
-// 			t.Errorf("Metadata ID: got %#v wanted %#v", got, want)
-// 		}
+		if got.hand.Metadata.ID != want.hand.Metadata.ID {
+			t.Errorf("Metadata ID: got %#v wanted %#v", got, want)
+		}
 
-// 		if !result {
-// 			t.Fatal("got false result, expected true")
-// 		}
+		if !result {
+			t.Fatal("got false result, expected true")
+		}
 
-// 		if fsErr != nil {
-// 			t.Fatal("got a filesystem error but didn't expect one: ", fsErr)
-// 		}
-// 	})
+		if fsErr != nil {
+			t.Fatal("got a filesystem error but didn't expect one: ", fsErr)
+		}
+	})
 
-// 	t.Run("error pathway", func(t *testing.T) {
-// 		fileSystem := failingFS{}
-// 		handChan := make(chan handImport, 10000)
-// 		ok, fsErr := extractHandsFromFile(fileSystem, "zoom.txt", handChan)
+	t.Run("error pathway", func(t *testing.T) {
+		fileSystem := failingFS{}
+		handChan := make(chan handImport, 10000)
+		ok, fsErr := extractHandsFromFile(fileSystem, "zoom.txt", handChan)
 
-// 		if fsErr == nil {
-// 			t.Fatal("expected an fsError but didn't get one!")
-// 		}
+		if fsErr == nil {
+			t.Fatal("expected an fsError but didn't get one!")
+		}
 
-// 		if ok {
-// 			t.Fatal("expected ok=false but was true!")
-// 		}
+		if ok {
+			t.Fatal("expected ok=false but was true!")
+		}
 
-// 	})
-// }
+	})
+}
 
 func TestParseHandData(t *testing.T) {
 
-	// 	t.Run("happy path", func(t *testing.T) {
-	// 		filename := "test-file.txt"
-	// 		handData := []byte(`PokerStars Hand #123: blah blah
-	// Seat 1: test ($6000 in chips)
-	// Seat 2: test2 ($3000 in chips)
-	// Dealt to KavarzE [Ad Ac]
-	// KavarzE: bets $2.33`)
+	t.Run("happy path", func(t *testing.T) {
+		filename := "test-file.txt"
+		handData := []byte(`PokerStars Hand #123: blah blah
+Seat 1: test ($6000 in chips)
+Seat 2: test2 ($3000 in chips)
+Dealt to test [Ad Ac]
+test: bets $2.33`)
 
-	// 		bytesReader := bytes.NewReader(handData)
-	// 		scanner := bufio.NewScanner(bytesReader)
+		bytesReader := bytes.NewReader(handData)
+		scanner := bufio.NewScanner(bytesReader)
 
-	// 		handCh := make(chan handImport, 10000)
+		handCh := make(chan handImport, 10000)
 
-	// 		ok, scanErr := parseHands(filename, scanner, handCh)
+		ok, scanErr := parseHands(filename, scanner, handCh)
 
-	// 		got := <-handCh
+		got := <-handCh
 
-	// 		if !ok {
-	// 			t.Fatal("expected ok to be true but was false!")
-	// 		}
+		if !ok {
+			t.Fatal("expected ok to be true but was false!")
+		}
 
-	// 		if scanErr != nil {
-	// 			t.Errorf("expected nil error but got %#v", scanErr)
-	// 		}
+		if scanErr != nil {
+			t.Errorf("expected nil error but got %#v", scanErr)
+		}
 
-	// 		want := handImport{
-	// 			filename,
-	// 			Hand{
-	// 				Metadata{
-	// 					"123", time.Time{}.Local(),
-	// 				},
-	// 				[]Player{{Username: "KavarzE", Cards: "Ad Ac"}}, []Action{{"KavarzE", 1, Preflop, Bets, 2.33}},
-	// 				Summary{
-	// 					nil, 0, 0,
-	// 				},
-	// 			},
-	// 			nil,
-	// 			false,
-	// 		}
+		want := handImport{
+			filename,
+			Hand{
+				Metadata{"123", time.Time{}.Local(), 0},
+				[]Player{
+					{Username: "test", Cards: [2]Card{"Ad", "Ac"}, Seat: 1, ChipCount: 6000},
+					{Username: "test2", Cards: [2]Card{"", ""}, Seat: 2, ChipCount: 3000}},
+				[]Action{{"test", 1, Preflop, Bets, 2.33}},
+				Summary{[2]CommunityCards{}, 0, 0, 0, nil},
+			},
+			nil,
+			false,
+		}
 
-	// 		if !reflect.DeepEqual(got.hand, want.hand) {
-	// 			t.Errorf("got %#v, wanted %#v", got, want)
-	// 		}
-	// 	})
+		if !reflect.DeepEqual(got.hand, want.hand) {
+			t.Errorf("got %#v, wanted %#v", got, want)
+		}
+	})
 
 	t.Run("Random non-hand data", func(t *testing.T) {
 		filename := "filename.txt"
@@ -610,7 +614,7 @@ func TestPlayerCardsFromText(t *testing.T) {
 		test string
 		want Player
 	}{
-		{`Seat 2: KavarzE (small blind) showed [Jc Js] and won ($5.03) with three of a kind, Jacks, and lost with three of a kind, Jacks`, Player{"KavarzE", [2]Card{"Jc", "Js"}, 0, 0} },
+		{`Seat 2: KavarzE (small blind) showed [Jc Js] and won ($5.03) with three of a kind, Jacks, and lost with three of a kind, Jacks`, Player{"KavarzE", [2]Card{"Jc", "Js"}, 0, 0}},
 		// {`Seat 5: ThxWasOby3 showed [Ah Qd] and lost with high card Ace, and won ($5.02) with a flush, Ace high`, Player{"ThxWasOby3", "Ah Qd"}},
 		// {`Seat 6: KavarzE mucked [6s 6d]`, Player{"KavarzE", "6s 6d"}},
 		// {`Seat 5: ilbeback2017 showed [Tc Td] and won ($1.37) with a pair of Tens`, Player{"ilbeback2017", "Tc Td"}},

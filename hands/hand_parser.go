@@ -464,7 +464,9 @@ func amountFromText(handText, sizePrefix string) (float64, error) {
 
 func updateOrAddPlayer(players map[string]*Player, player Player) {
 	if p, ok := players[player.Username]; ok {
-		p.Cards = player.Cards
+		if p.Cards == [2]Card{"", ""} {
+			p.Cards = player.Cards
+		}
 	} else {
 		newPlayer := player
 		players[player.Username] = &newPlayer
