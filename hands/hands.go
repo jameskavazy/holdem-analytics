@@ -1,3 +1,5 @@
+// Package hands provides functionality for processing hands from semi-structured
+// text file data into structured data ready for downstream analytics
 package hands
 
 // TODO - At some point we're going to want to make an interface of sorts so that we handle Pokerstars hands, Party poker hands. etc.
@@ -54,7 +56,7 @@ func CurrencyError(msg string) error {
 	return fmt.Errorf("%w: %s", errNoCurrency, msg)
 }
 
-// NoHandIDError  propagate an ErrNoHandID error with customised message msg.
+// NoHandIDError propagate an ErrNoHandID error with customised message msg.
 func NoHandIDError(msg string) error {
 	return fmt.Errorf("%w: %s", ErrNoHandID, msg)
 }
@@ -64,6 +66,7 @@ func ActionParseError(msg string) error {
 	return fmt.Errorf("%w: %s", ErrFailToParseAction, msg)
 }
 
+// PlayerInfoError returns an ErrPlayerInfo error with a customised message msg.
 func PlayerInfoError(msg string) error {
 	return fmt.Errorf("%w: %s", ErrPlayerInfo, msg)
 }
@@ -76,12 +79,14 @@ type Hand struct {
 	Summary  Summary
 }
 
+// Metadata defines important information about a Hand to help identify it
 type Metadata struct {
 	ID         string
 	Date       time.Time
 	ButtonSeat int
 }
 
+// Summary groups data from the hand summary section. It is used to report the final overall outcome of the hand.
 type Summary struct {
 	CommunityCards [2]CommunityCards
 	Pot            float64
@@ -113,14 +118,17 @@ type Player struct {
 	ChipCount float64
 }
 
+// Card is a reprensation of a single card found in a standard 52 playing card deck
 type Card string
 
+// CommunityCards are the a representation of the community cards (shared cards) found in Texas Hold'em
 type CommunityCards struct {
 	Flop  [3]Card
 	Turn  Card
 	River Card
 }
 
+// Winner describes a user who won the hand and their profit
 type Winner struct {
 	PlayerName string
 	Amount     float64

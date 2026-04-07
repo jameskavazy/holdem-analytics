@@ -44,7 +44,14 @@ func extractHandsFromFile(filesystem fs.FS, filename string, handChan chan<- han
 		return false, err
 	}
 
-	defer file.Close()
+	defer func() {
+		closeErr := file.Close()
+
+		if err == nil {
+			err = closeErr
+		}
+
+	}()
 
 	scanner := bufio.NewScanner(file)
 
@@ -225,20 +232,19 @@ func parseActionLine(line string, actionStreet *Street, order *int) (Action, boo
 
 func parseCommunityCards(handText string) [2]CommunityCards {
 	if strings.Contains(handText, "Hand was run twice") {
-		firstBoard := communityCardsFromText(handText, ritFirstBoardSignifier, "]")
-		secondBoard := communityCardsFromText(handText, ritSecondBoardSignifier, "]")
+		firstBoard := communityCardsFromText(handText, ritFirstBoardSignifier)
+		secondBoard := communityCardsFromText(handText, ritSecondBoardSignifier)
 		return [2]CommunityCards{firstBoard, secondBoard}
 	}
 	if strings.Contains(handText, boardSignifier) {
-		board := communityCardsFromText(handText, boardSignifier, "]")
+		board := communityCardsFromText(handText, boardSignifier)
 		return [2]CommunityCards{board, {}}
 	}
 	return [2]CommunityCards{}
 }
 
-func communityCardsFromText(handText, boardStart, boardEnd string) CommunityCards {
-
-	boardString := substringBetween(handText, boardStart, boardEnd)
+func communityCardsFromText(handText, boardStart string) CommunityCards {
+	boardString := substringBetween(handText, boardStart, "]")
 	fields := strings.Fields(boardString)
 
 	cc := CommunityCards{}

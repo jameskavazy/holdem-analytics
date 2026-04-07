@@ -11,23 +11,30 @@ import (
 const maxFailRate float64 = 0.005
 
 var (
-	ErrFailRate        = errors.New("error handErrs exceeded the maximum fail rate")
+	// ErrFailRate indicates that the number of hand errors within the file exceeds the maximum fail rate constant
+	ErrFailRate = errors.New("error handErrs exceeded the maximum fail rate")
+
+	// ErrFileNotParsable indicates that the given file was not able to be opened or read by the scanner
 	ErrFileNotParsable = errors.New("error failed to open file for parsing")
 )
 
+// FailRateErr returns an error containing an ErrFailRate and message
 func FailRateErr(msg string) error {
 	return fmt.Errorf("%w: %s", ErrFailRate, msg)
 }
 
+// FileNotParsableErr returns an error containing an ErrFileNotParsable and message
 func FileNotParsableErr(msg string) error {
 	return fmt.Errorf("%w: %s", ErrFileNotParsable, msg)
 }
 
+// ExportResult contains a slice of FileResult stats and an FsErr that reports on any filesystem errors encountered during the export
 type ExportResult struct {
 	FileResults []FileResult
 	FsErr       error // filesystem error preventing any parsing
 }
 
+// FileResult provides information about the file parsed, including path, number of successful hands/hand errors.
 type FileResult struct {
 	Path        string
 	HandsParsed int
@@ -35,8 +42,8 @@ type FileResult struct {
 	Err         error
 }
 
+// FileErrorCount returns the number of files in the ExportResult with a non-nil file error.
 func (e *ExportResult) FileErrorCount() int {
-
 	errCount := 0
 
 	for _, f := range e.FileResults {
@@ -47,6 +54,7 @@ func (e *ExportResult) FileErrorCount() int {
 	return errCount
 }
 
+// HandsCount returns the number of successfully parsed hands across all files within the ExportResult.
 func (e *ExportResult) HandsCount() int {
 	count := 0
 	for _, f := range e.FileResults {
@@ -55,6 +63,7 @@ func (e *ExportResult) HandsCount() int {
 	return count
 }
 
+// HandErrCount returns the number of hands across all files within the ExportResult that failed to be parsed.
 func (e *ExportResult) HandErrCount() int {
 	count := 0
 	for _, f := range e.FileResults {
@@ -63,6 +72,7 @@ func (e *ExportResult) HandErrCount() int {
 	return count
 }
 
+// SuccessCount returns the number of files in the ExportResult that were successfully parsed with no file errors.
 func (e *ExportResult) SuccessCount() int {
 	return len(e.FileResults) - e.FileErrorCount()
 }
@@ -145,7 +155,7 @@ func collectResults(handsChannel <-chan handImport) ExportResult {
 			counter[h.filePath].err = FileNotParsableErr("could not open file")
 		} else if h.handErr != nil {
 			counter[h.filePath].failure++
-			
+
 			handID := h.hand.Metadata.ID
 			if handID == "" {
 				handID = "no hand id"

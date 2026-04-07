@@ -51,7 +51,7 @@ func TestCollectResults(t *testing.T) {
 
 		s := got.FileResults[0]
 		if s.Path != "zoom.txt" {
-			t.Errorf("expected succesful file path 'zoom.txt', but got, %v", s)
+			t.Errorf("expected successful file path 'zoom.txt', but got, %v", s)
 		}
 
 		for _, fr := range got.FileResults {
@@ -96,6 +96,7 @@ func TestCollectResults(t *testing.T) {
 func TestExtractFileResults(t *testing.T) {
 
 	t.Run("parsable files one successful path one unsuccessful path", func(t *testing.T) {
+		const failureFileName string = "failures.txt"
 
 		data := map[string]*fileCounter{
 			"zoom.txt": {
@@ -103,7 +104,7 @@ func TestExtractFileResults(t *testing.T) {
 				failure: 1,
 				err:     nil,
 			},
-			"failures.txt": {
+			failureFileName: {
 				success: 0,
 				failure: 5,
 				err:     nil,
@@ -112,7 +113,7 @@ func TestExtractFileResults(t *testing.T) {
 
 		got := extractFileResults(data)
 		want := []FileResult{
-			{"zoom.txt", 121, 1, nil}, {"failures.txt", 0, 5, ErrFailRate},
+			{"zoom.txt", 121, 1, nil}, {failureFileName, 0, 5, ErrFailRate},
 		}
 
 		if len(got) != 2 {
@@ -120,7 +121,8 @@ func TestExtractFileResults(t *testing.T) {
 		}
 
 		for _, g := range got {
-			if g.Path == "failures.txt" && !errors.Is(g.Err, ErrFailRate) {
+
+			if g.Path == failureFileName && !errors.Is(g.Err, ErrFailRate) {
 				t.Errorf("expected ErrFailRate for failures.txt but got %v", g.Err)
 			}
 		}
@@ -131,13 +133,14 @@ func TestExtractFileResults(t *testing.T) {
 	})
 
 	t.Run("unparsable file and one parsable", func(t *testing.T) {
+		const failureFileName string = "failures.txt"
 		data := map[string]*fileCounter{
 			"zoom.txt": {
 				success: 121,
 				failure: 1,
 				err:     nil,
 			},
-			"failures.txt": {
+			failureFileName: {
 				success: 0,
 				failure: 0,
 				err:     ErrFileNotParsable,
@@ -147,11 +150,11 @@ func TestExtractFileResults(t *testing.T) {
 		fileResults := extractFileResults(data)
 
 		for _, f := range fileResults {
-			if f.Err == nil && f.Path == "failures.txt" {
+			if f.Err == nil && f.Path == failureFileName {
 				t.Fatal("wanted an error but did't get one")
 			}
 
-			if !errors.Is(f.Err, ErrFileNotParsable) && f.Path == "failures.txt" {
+			if !errors.Is(f.Err, ErrFileNotParsable) && f.Path == failureFileName {
 				t.Errorf("wanted an ErrFileNotParsable but got %#v", f.Err)
 			}
 		}

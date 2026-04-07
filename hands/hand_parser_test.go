@@ -10,8 +10,6 @@ import (
 	"sync"
 	"testing"
 	"testing/fstest"
-
-	// "testing/fstest"
 	"time"
 )
 
@@ -598,7 +596,7 @@ func TestSeatIntFromText(t *testing.T) {
 
 func TestCommunityCardsFromText(t *testing.T) {
 	handText := testHands
-	got := communityCardsFromText(handText, boardSignifier, "]")
+	got := communityCardsFromText(handText, boardSignifier)
 
 	if got.Flop != [3]Card{"Qc", "As", "3d"} {
 		t.Errorf("wanted %#v community cards but got %#v", [3]Card{"Qc", "As", "3d"}, got.Flop)
@@ -771,7 +769,7 @@ func TestConvertToSlice(t *testing.T) {
 
 type failingFS struct{}
 
-func (f failingFS) Open(name string) (fs.File, error) {
+func (f failingFS) Open(_ string) (fs.File, error) {
 	return nil, errors.New("oh no i always fail")
 }
 
