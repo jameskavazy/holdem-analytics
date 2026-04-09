@@ -97,7 +97,6 @@ type Summary struct {
 	CommunityCards [2]CommunityCards
 	Pot            float64
 	Rake           float64
-	UncalledBet    float64
 	Winners        []Winner
 }
 

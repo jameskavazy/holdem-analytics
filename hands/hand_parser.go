@@ -153,7 +153,7 @@ func parseHandSummary(summaryText string) (Summary, error) {
 		return Summary{}, potErr
 	}
 
-	summary := Summary{communityCards, pot, rake, 0.00, []Winner{}}
+	summary := Summary{communityCards, pot, rake, []Winner{}}
 	return summary, nil
 }
 

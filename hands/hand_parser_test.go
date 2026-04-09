@@ -76,6 +76,65 @@ func TestParseHandsAcceptance(t *testing.T) {
 		assertHand(t, got.hand, want)
 	})
 
+	t.Run("hand data is correctly for an uncalled bet instance", func(t *testing.T) {
+		fileSystem := fstest.MapFS{
+			"Wei III": {Data: []byte(uncalledBetHand)},
+		}
+		file, _ := fileSystem.Open("Wei III")
+		scanner := bufio.NewScanner(file)
+		channel := make(chan handImport, 1)
+		ok, scanErr := parseHands("Wei III ", scanner, channel)
+
+		if !ok {
+			t.Fatal("wanted ok=true from parseHands but got false")
+		}
+		if scanErr != nil {
+			t.Errorf("wanted nil scanErr but got %v", scanErr)
+		}
+
+		handTime, _ := time.Parse(time.DateTime, "2025-08-27 17:30:17")
+
+		got := <-channel
+
+		want := Hand{
+			Metadata: Metadata{
+				ID:         "257507385322",
+				Date:       handTime.Local(),
+				ButtonSeat: 1,
+			},
+			Players: []Player{{"TSCardinals", [2]Card{}, 1, 2.02}, {"Jimmey54", [2]Card{}, 2, 2.21}, {"nm8800", [2]Card{}, 3, 2.31}, {"Chewbacca97", [2]Card{}, 4, 1.08}, {"KavarzE", [2]Card{"8s", "As"}, 5, 2.08}, {"haeorm", [2]Card{}, 6, 6.26}},
+			Actions: []Action{
+				actionBuildHelper("Jimmey54", Posts, Preflop, 1, 0.01),
+				actionBuildHelper("nm8800", Posts, Preflop, 2, 0.02),
+				actionBuildHelper("Chewbacca97", Folds, Preflop, 3, 0),
+				actionBuildHelper("KavarzE", Raises, Preflop, 4, 0.04),
+				actionBuildHelper("haeorm", Folds, Preflop, 5, 0),
+				actionBuildHelper("TSCardinals", Calls, Preflop, 6, 0.06),
+				actionBuildHelper("Jimmey54", Folds, Preflop, 7, 0),
+				actionBuildHelper("nm8800", Folds, Preflop, 8, 0),
+				actionBuildHelper("KavarzE", Bets, Flop, 9, 0.04),
+				actionBuildHelper("TSCardinals", Calls, Flop, 10, 0.04),
+				actionBuildHelper("KavarzE", Checks, Turn, 11, 0),
+				actionBuildHelper("TSCardinals", Bets, Turn, 12, 0.17),
+				actionBuildHelper("KavarzE", Folds, Turn, 13, 0.00),
+			},
+			Summary: Summary{
+				CommunityCards: [2]CommunityCards{{
+					Flop:  [3]Card{"Tc", "4h", "6h"},
+					Turn:  Card("5c"),
+					River: Card(""),
+				}, {}},
+				Pot:  0.23,
+				Rake: 0.01,
+				Winners: []Winner{
+					{"TSCardinals", 0.22},
+				},
+			},
+		}
+
+		assertHand(t, got.hand, want)
+	})
+
 	// t.Run("run it twice hand parse correctly", func(t *testing.T) {
 	// 	fileSystem := fstest.MapFS{
 	// 		"RIT": {Data: []byte(runItTwice)},
@@ -339,7 +398,7 @@ Seat 1: KavarzE won ($3.80)`)},
 					{"KavarzE", 1, Preflop, Bets, 2.33},
 				},
 				Summary{
-					[2]CommunityCards{}, 0, 0, 0, []Winner{},
+					[2]CommunityCards{}, 0, 0, []Winner{},
 				},
 			},
 			nil,
@@ -422,7 +481,7 @@ Seat 1: KavarzE won ($3.80)`)
 					{Username: "test", Cards: [2]Card{"Ad", "Ac"}, Seat: 1, ChipCount: 6000},
 					{Username: "test2", Cards: [2]Card{"", ""}, Seat: 2, ChipCount: 3000}},
 				[]Action{{"test", 1, Preflop, Bets, 2.33}},
-				Summary{[2]CommunityCards{}, 0.25, 0.01, 0, []Winner{{"KavarzE", 3.80}}},
+				Summary{[2]CommunityCards{}, 0.25, 0.01, []Winner{{"KavarzE", 3.80}}},
 			},
 			nil,
 			false,
@@ -1113,3 +1172,41 @@ Seat 3: KavarzE (big blind) folded on the Turn
 Seat 4: MGPN folded before Flop (didn't bet)
 Seat 5: ikin23 folded before Flop (didn't bet)
 Seat 6: honda589 folded before Flop (didn't bet)`
+
+const uncalledBetHand string = `PokerStars Zoom Hand #257507385322:  Hold'em No Limit ($0.01/$0.02) - 2025/08/27 18:30:17 WET [2025/08/27 13:30:17 ET]
+Table 'Halley' 6-max Seat #1 is the button
+Seat 1: TSCardinals ($2.02 in chips) 
+Seat 2: Jimmey54 ($2.21 in chips) 
+Seat 3: nm8800 ($2.31 in chips) 
+Seat 4: Chewbacca97 ($1.08 in chips) 
+Seat 5: KavarzE ($2.08 in chips) 
+Seat 6: haeorm ($6.26 in chips) 
+Jimmey54: posts small blind $0.01
+nm8800: posts big blind $0.02
+*** HOLE CARDS ***
+Dealt to KavarzE [8s As]
+Chewbacca97: folds 
+KavarzE: raises $0.04 to $0.06
+haeorm: folds 
+TSCardinals: calls $0.06
+Jimmey54: folds 
+nm8800: folds 
+*** FLOP *** [Tc 4h 6h]
+KavarzE: bets $0.04
+TSCardinals: calls $0.04
+*** TURN *** [Tc 4h 6h] [5c]
+KavarzE: checks 
+TSCardinals: bets $0.17
+KavarzE: folds 
+Uncalled bet ($0.17) returned to TSCardinals
+TSCardinals collected $0.22 from pot
+TSCardinals: doesn't show hand 
+*** SUMMARY ***
+Total pot $0.23 | Rake $0.01 
+Board [Tc 4h 6h 5c]
+Seat 1: TSCardinals (button) collected ($0.22)
+Seat 2: Jimmey54 (small blind) folded before Flop
+Seat 3: nm8800 (big blind) folded before Flop
+Seat 4: Chewbacca97 folded before Flop (didn't bet)
+Seat 5: KavarzE folded on the Turn
+Seat 6: haeorm folded before Flop (didn't bet)`
