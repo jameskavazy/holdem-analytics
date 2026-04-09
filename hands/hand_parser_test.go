@@ -151,7 +151,7 @@ func TestActionTypeFromText(t *testing.T) {
 }
 
 func TestParseHandSummary(t *testing.T) {
-	handText := testHands
+	handText := handSummary
 
 	summary, _ := parseHandSummary(handText)
 
@@ -164,11 +164,9 @@ func TestParseHandSummary(t *testing.T) {
 				Card(""),
 			},
 			{}},
-		Winners: []Winner{
-			{"kv_def", 0.35},
-		},
+		Winners: []Winner{},
 	}
-
+	// WHAT
 	if !reflect.DeepEqual(summary, summaryWant) {
 		t.Errorf("got %#v, but wanted %#v", summary, summaryWant)
 	}
@@ -306,7 +304,10 @@ func TestExtractHandsFromFile(t *testing.T) {
 Seat 1: test ($6000 in chips)
 Seat 2: KavarzE ($3000 in chips)
 Dealt to KavarzE [Ad Ac]
-KavarzE: bets $2.33`)},
+KavarzE: bets $2.33
+*** SUMMARY ***
+Total pot $0.25 | Rake $0.01
+Seat 1: KavarzE won ($3.80)`)},
 		}
 
 		handChan := make(chan handImport, 1)
@@ -321,11 +322,16 @@ KavarzE: bets $2.33`)},
 			"zoom.txt",
 			Hand{
 				Metadata{"123", time.Time{}.Local(), 0},
-				[]Player{
-					{Username: "KavarzE"},
-					{Cards: [2]Card{"Ad", "Ac"}},
-					{Seat: 2},
-					{ChipCount: 3000},
+				[]Player{{
+					Username:  "test",
+					Cards:     [2]Card{"", ""},
+					Seat:      1,
+					ChipCount: 6000},
+
+					{Username: "KavarzE",
+						Cards:     [2]Card{"Ad", "Ac"},
+						Seat:      2,
+						ChipCount: 3000},
 				},
 				[]Action{
 					{"KavarzE", 1, Preflop, Bets, 2.33},
@@ -383,7 +389,10 @@ func TestParseHandData(t *testing.T) {
 Seat 1: test ($6000 in chips)
 Seat 2: test2 ($3000 in chips)
 Dealt to test [Ad Ac]
-test: bets $2.33`)
+test: bets $2.33
+*** SUMMARY ***
+Total pot $0.25 | Rake $0.01
+Seat 1: KavarzE won ($3.80)`)
 
 		bytesReader := bytes.NewReader(handData)
 		scanner := bufio.NewScanner(bytesReader)
@@ -410,7 +419,7 @@ test: bets $2.33`)
 					{Username: "test", Cards: [2]Card{"Ad", "Ac"}, Seat: 1, ChipCount: 6000},
 					{Username: "test2", Cards: [2]Card{"", ""}, Seat: 2, ChipCount: 3000}},
 				[]Action{{"test", 1, Preflop, Bets, 2.33}},
-				Summary{[2]CommunityCards{}, 0, 0, 0, nil},
+				Summary{[2]CommunityCards{}, 0.25, 0.01, 0, []Winner{{"KavarzE", 3.80}}},
 			},
 			nil,
 			false,
@@ -655,77 +664,79 @@ func TestPlayerCardsFromText(t *testing.T) {
 
 }
 
-func TestAmountFromText(t *testing.T) {
+func TestPotFromText(t *testing.T) {
 
 	t.Run("happy path pot", func(t *testing.T) {
 		cases := []struct {
-			test string
-			want float64
+			test     string
+			wantPot  float64
+			wantRake float64
 		}{
-			{"Total pot $0.94 | ", 0.94},
-			{"Total pot $10.55 | Rake", 10.55},
-			{"Total pot $2.36 | ", 2.36},
-			{"Total pot $0.05 |", 0.05},
+			{"Total pot $0.94 | Rake $0", 0.94, 0},
+			{"Total pot $10.55 | Rake $0.94", 10.55, 0.94},
+			{"Total pot $198.36 | Rake $10.22", 198.36, 10.22},
 		}
 
 		for _, tt := range cases {
-			got, err := amountFromText(tt.test, potSizeSignifier)
+			gotPot, gotRake, err := potFromText(tt.test)
 
 			if err != nil {
 				t.Error("expected nil error but got one")
 			}
 
-			if got != tt.want {
-				t.Errorf("got %f wanted %f", got, tt.want)
-			}
-		}
-	})
-
-	t.Run("happy path rake", func(t *testing.T) {
-		cases := []struct {
-			test string
-			want float64
-		}{
-			{"Rake $0.94\n", 0.94},
-			{"Rake $10.55\n", 10.55},
-			{"Rake $2.36\n", 2.36},
-			{"| Rake $0.05\n", 0.05},
-		}
-
-		for _, tt := range cases {
-			got, err := amountFromText(tt.test, rakeSizeSignifier)
-
-			if err != nil {
-				t.Errorf("expected nil error but got %v", err)
+			if gotPot != tt.wantPot {
+				t.Errorf("got %f wanted %f", gotPot, tt.wantPot)
 			}
 
-			if got != tt.want {
-				t.Errorf("got %f wanted %f", got, tt.want)
+			if gotRake != tt.wantRake {
+				t.Errorf("got %v, but wanted %v", gotPot, tt.wantRake)
 			}
 		}
 	})
 
 	t.Run("failing non-float strings", func(t *testing.T) {
 		cases := []struct {
-			test   string
-			result float64
+			test       string
+			resultPot  float64
+			resultRake float64
 		}{
-			{"oh no there's no float value here", 0},
-			{"Total pot $ unable to parsey", 0},
-			{"Rake $ unparseable", 0},
+			{"Total pot oh no there's no float value here", 0, 0},
+			{"Total pot $ unable to parsey", 0, 0},
+			{"Total pot Rake $ unparsable", 0, 0},
 		}
 
 		for _, tt := range cases {
-			got, err := amountFromText(tt.test, potSizeSignifier)
+			gotPot, gotRake, err := potFromText(tt.test)
 
 			if err == nil {
-				t.Errorf("expected err but didn't get one")
+				t.Errorf("expected err but didn't get one. case: %v", tt.test)
 			}
 
-			if got != tt.result {
-				t.Errorf("got %v, but wanted %v", got, tt.result)
+			if gotPot != tt.resultPot {
+				t.Errorf("got %v, but wanted %v", gotPot, tt.resultPot)
+			}
+
+			if gotRake != tt.resultRake {
+				t.Errorf("got %v, but wanted %v", gotPot, tt.resultRake)
 			}
 		}
+	})
+
+	t.Run("non total pot/rake line", func(t *testing.T) {
+		gotPot, gotRake, err := potFromText("Seat 1: KavarzE won ($3.89)")
+
+		if gotPot != 0 {
+			t.Errorf("wanted 0 but got %v", gotPot)
+		}
+
+		if gotRake != 0 {
+			t.Errorf("wanted 0 but got %v", gotRake)
+		}
+
+		if err != nil {
+			t.Errorf("wanted nil err but got %v", err)
+		}
+
 	})
 
 }
@@ -871,7 +882,7 @@ Seat 6: honda589 folded before Flop (didn't bet)`
 
 const brokenHands string = `PokerStars Zoom Hand #254671589924:  Hold'em No Limit ($0.02/$0.05) - 2025/02/02 16:57:48 WET [2025/02/02 11:57:48 ET]
 Table 'Donati' 6-max Seat #1 is the button
-Seat 1: KavarzE ($5 in chips) 
+Seat 1: KavarzE ($5 in chips)
 Seat 2: Zwenni24 ($12.59 in chips) 
 Seat 3: axf888 ($4.06 in chips) 
 Seat 4: Mallorny ($5 in chips) 
@@ -891,7 +902,7 @@ Uncalled bet ($0.05) returned to Zwenni24
 Zwenni24 collected $0.10 from pot
 Zwenni24: doesn't show hand 
 *** SUMMARY ***
-Total pot $0.10 | Rake $0 
+Total pot $0.10 | Rake $0
 Seat 1: KavarzE (button) folded before Flop (didn't bet)
 Seat 2: Zwenni24 (small blind) collected ($0.10)
 Seat 3: axf888 (big blind) folded before Flop
@@ -1060,3 +1071,12 @@ Seat 3: Javis1311 (big blind) showed [Ad Td] and won ($0.96) with two pair, Aces
 Seat 4: ricardo_riro folded before Flop (didn't bet)
 Seat 5: ferchaPok folded before Flop (didn't bet)
 Seat 6: ChipInvadr folded before Flop (didn't bet)`
+
+const handSummary string = `Total pot $0.36 | Rake $0.01
+Board [Qc As 3d 2h]
+Seat 1: JDfq28 (button) folded on the Turn
+Seat 2: kv_def (small blind) collected ($0.35)
+Seat 3: KavarzE (big blind) folded on the Turn
+Seat 4: MGPN folded before Flop (didn't bet)
+Seat 5: ikin23 folded before Flop (didn't bet)
+Seat 6: honda589 folded before Flop (didn't bet)`

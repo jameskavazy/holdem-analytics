@@ -49,6 +49,7 @@ var (
 	ErrNoHandID          = errors.New("error no hand ID was found, unable parse. ignoring hand") // TODO: Perhaps make this a struct & add the file, hand info and error to struct.
 	ErrPlayerInfo        = errors.New("error could not parse player info, not enough fields on line. hand data is corrupt")
 	errNoCurrency        = errors.New("error parsing Action.Amount, expected currency'")
+	errNoCommunityCards  = errors.New("error parsing the community cards in hand summary")
 )
 
 // CurrencyError propagate an errNoCurrency error with customised message msg.
@@ -69,6 +70,11 @@ func ActionParseError(msg string) error {
 // PlayerInfoError returns an ErrPlayerInfo error with a customised message msg.
 func PlayerInfoError(msg string) error {
 	return fmt.Errorf("%w: %s", ErrPlayerInfo, msg)
+}
+
+// CommunityCardsError progogates an errNoCommunityCards with a customised msg.
+func CommunityCardsError(msg string) error {
+	return fmt.Errorf("%w: %s", errNoCommunityCards, msg)
 }
 
 // Hand represents a hand of poker

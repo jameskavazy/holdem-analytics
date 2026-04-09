@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"regexp"
 	"slices"
 	"strconv"
@@ -21,6 +22,7 @@ const (
 	flopSignifier           string = "*** FLOP ***"
 	turnSignifier           string = "*** TURN ***"
 	riverSignifier          string = "*** RIVER ***" //TODO players can run it twice... >  *** FIRST RIVER *** *** SECOND RIVER ***
+	summarySignifier        string = "*** SUMMARY ***"
 	heroHandPrefix          string = "Dealt to"
 	showedSignifier         string = "showed ["
 	muckedSignifier         string = "mucked ["
@@ -77,25 +79,50 @@ func parseHands(filename string, fileData *bufio.Scanner, handChan chan<- handIm
 		}
 
 		metadata, metadataErr := parseMetaData(handText)
-		summary, _ := parseHandSummary(handText)
 
 		if metadataErr != nil {
 			handChan <- handImport{filename, Hand{}, metadataErr, false}
 			continue // the hand lacks crucial metadata - skip
 		}
 
-		players, actions, winners, actionErr := parseActionLines(handText)
-		if actionErr != nil {
+		players, actions, winners, scanHandErr := scanHandLines(handText)
+		if scanHandErr != nil {
 			handChan <- handImport{
 				filePath: filename,
 				hand:     Hand{},
-				handErr:  actionErr,
+				handErr:  scanHandErr,
 				fileErr:  false,
 			}
 			continue // the hand lacks crucial gameplay info - skip
 		}
+		summaryStartIndex := strings.Index(handText, summarySignifier)
 
-		summary.Winners = winners
+		if summaryStartIndex == -1 {
+			log.Printf("missing summary in file %v\n", filename)
+
+			handChan <- handImport{
+				filePath: filename,
+				hand:     Hand{},
+				handErr:  errors.New("no summary found"),
+				fileErr:  false,
+			}
+			continue // the hand lacks important summary data
+		}
+
+		summary, parseSummaryErr := parseHandSummary(handText[summaryStartIndex:])
+
+		if parseSummaryErr != nil {
+			handChan <- handImport{
+				filePath: filename,
+				hand:     Hand{},
+				handErr:  parseSummaryErr,
+				fileErr:  false,
+			}
+			continue // the hand lacks important summary data
+		}
+
+		// update summary.Winners with scanHandLines extracted winners
+		summary.Winners = append(summary.Winners, winners...)
 
 		handChan <- handImport{
 			filePath: filename,
@@ -118,20 +145,15 @@ func parseHands(filename string, fileData *bufio.Scanner, handChan chan<- handIm
 }
 
 // parseHandSummary pulls together the hand summary information and metadata.
-func parseHandSummary(handText string) (Summary, error) {
-	communityCards := parseCommunityCards(handText)
+func parseHandSummary(summaryText string) (Summary, error) {
+	communityCards := parseCommunityCards(summaryText)
 
-	pot, potErr := amountFromText(handText, potSizeSignifier)
+	pot, rake, potErr := potFromText(summaryText)
 	if potErr != nil {
 		return Summary{}, potErr
 	}
 
-	rake, rakeErr := amountFromText(handText, rakeSizeSignifier)
-	if rakeErr != nil {
-		return Summary{}, rakeErr
-	}
-
-	summary := Summary{communityCards, pot, rake, 0.00, nil} // PLACEHOLDER TODO!!!!
+	summary := Summary{communityCards, pot, rake, 0.00, []Winner{}}
 	return summary, nil
 }
 
@@ -146,9 +168,9 @@ func parseMetaData(handText string) (Metadata, error) {
 	return metadata, nil
 }
 
-// parseActionLines scans the hand data line by line and generates a slice of players and actions. Returns
+// scanHandLines scans the hand data line by line and generates a slice of players, actions and winners. Returns
 // a non-nil error if an error was received from the parse helper functions.
-func parseActionLines(handText string) ([]Player, []Action, []Winner, error) {
+func scanHandLines(handText string) ([]Player, []Action, []Winner, error) {
 
 	playersMap := map[string]*Player{}
 	var actions []Action
@@ -502,19 +524,22 @@ func dateTimeFromText(line string) string {
 	return formattedTimeString
 }
 
-func amountFromText(handText, sizePrefix string) (float64, error) {
-	var suffix string
-	if sizePrefix == potSizeSignifier {
-		suffix = " |"
-	} else {
-		suffix = newLine
+func potFromText(handText string) (float64, float64, error) {
+
+	if strings.Contains(handText, potSizeSignifier) {
+		potString, rakeString, _ := strings.Cut(handText, "|")
+
+		potSize, potErr := extractAmount(potString)
+		rake, rakeErr := extractAmount(rakeString)
+		if potErr != nil {
+			return 0, 0, fmt.Errorf("amountFromText: unable to parse float parsing: %w", potErr)
+		}
+		if rakeErr != nil {
+			return 0, 0, fmt.Errorf("amountFromText: unable to parse float parsing: %w", rakeErr)
+		}
+		return potSize, rake, nil
 	}
-	amtString := substringBetween(handText, sizePrefix+Dollar, suffix)
-	amtFloat, err := strconv.ParseFloat(amtString, 64)
-	if err != nil {
-		return 0, fmt.Errorf("unable to parse float parsing: %w", err)
-	}
-	return amtFloat, nil
+	return 0, 0, nil
 }
 
 func updateOrAddPlayer(players map[string]*Player, player Player) {
