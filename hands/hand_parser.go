@@ -566,13 +566,21 @@ func updateOrAddPlayer(players map[string]*Player, player Player) {
 	}
 }
 
-// Substring between returns the substring between the first instance of characters start and end.
-// If text does not contain either the start or end string, the original text is returned unchanged
+// subStringBetween returns the substring between the first instance of characters start and end.
+// If text does not contain either the start or end string, the original text is returned unchanged.
 func substringBetween(text, start, end string) string {
-	if !strings.Contains(text, start) || !strings.Contains(text, end) {
+	startIndex := strings.Index(text, start)
+	if startIndex == -1 {
 		return text
 	}
-	return strings.Split(strings.Split(text, start)[1], end)[0]
+	startSubString := text[startIndex+len(start):]
+	endIndex := strings.Index(startSubString, end)
+
+	if endIndex == -1 || startIndex+len(start) > len(text) {
+		return text
+	}
+
+	return startSubString[:endIndex]
 }
 
 // ellipsis truncates a given string by the max length of characters provided and appends with ellipsis.

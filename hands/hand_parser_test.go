@@ -849,7 +849,6 @@ func TestWinnerFromHandText(t *testing.T) {
 		test string
 		want Winner
 	}{
-
 		{"Seat 2: kv_def (small blind) collected ($0.35)", Winner{"kv_def", 0.35}},
 		{"Seat 4: lukebartlett showed [Qd Kc] and won ($2.99) with two pair, Kings and Queens", Winner{"lukebartlett", 2.99}},
 	}
@@ -894,6 +893,45 @@ Table 'Wei III' 6-max Seat #9 is the button`, 9},
 		if err != nil {
 			t.Errorf("wanted nil error but got %v", err)
 		}
+
+		if got != tt.want {
+			t.Errorf("wanted %v but got %v", tt.want, got)
+		}
+	}
+}
+
+func TestSubstringBetween(t *testing.T) {
+	cases := []struct {
+		test  string
+		start string
+		end   string
+		want  string
+	}{
+		{
+			test:  "PokerStars Zoom Hand #254489598204:  Hold'em No Limit ($0.02/$0.05) - 2025/01/21 20:51:32 WET [2025/01/21 15:51:32 ET]",
+			start: " [",
+			end:   " ET]",
+			want:  "2025/01/21 15:51:32",
+		},
+		{
+			test:  "Dealt to KavarzE [Ac Dc]",
+			start: " [",
+			end:   "]",
+			want:  "Ac Dc",
+		},
+		{
+			test: `PokerStars Zoom Hand #257507385322:  Hold'em No Limit ($0.01/$0.02) - 2025/08/27 18:30:17 WET [2025/08/27 13:30:17 ET]
+Table 'Halley' 6-max Seat #1 is the button
+Seat 1: TSCardinals ($2.02 in chips) 
+`,
+			start: "Seat #",
+			end:   " is the button",
+			want:  "1",
+		},
+	}
+
+	for _, tt := range cases {
+		got := substringBetween(tt.test, tt.start, tt.end)
 
 		if got != tt.want {
 			t.Errorf("wanted %v but got %v", tt.want, got)
