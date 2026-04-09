@@ -38,6 +38,7 @@ const (
 
 var amountRegex = regexp.MustCompile(`\$(\d+(?:\.\d+)?)`)
 var seatIntRegex = regexp.MustCompile(`^Seat (\d+): `)
+var siteLocation, _ = time.LoadLocation("America/New_York")
 
 func extractHandsFromFile(filesystem fs.FS, filename string, handChan chan<- handImport) (ok bool, fsErr error) {
 	file, err := filesystem.Open(filename)
@@ -514,7 +515,6 @@ func seatIntFromText(line string) (int64, error) {
 }
 
 func parseDateTime(timeString string) time.Time {
-	siteLocation, _ := time.LoadLocation("America/New_York")
 	siteTime, _ := time.ParseInLocation(time.DateTime, timeString, siteLocation)
 	return siteTime.Local()
 }
