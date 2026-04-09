@@ -164,8 +164,21 @@ func parseMetaData(handText string) (Metadata, error) {
 		return Metadata{}, NoHandIDError(fmt.Sprintf("in hand %#v", shortHand))
 	}
 	dateTime := parseDateTime(dateTimeFromText(handText))
-	metadata := Metadata{handID, dateTime, 0}
+
+	btnSeatInt, err := extractButtonSeatFromText(handText)
+
+	if err != nil {
+		return Metadata{}, err
+	}
+
+	metadata := Metadata{handID, dateTime, int(btnSeatInt)}
 	return metadata, nil
+}
+
+func extractButtonSeatFromText(handText string) (int64, error) {
+	btnSeatString := substringBetween(handText, "Seat #", " is the button")
+	btnSeatInt, err := strconv.ParseInt(btnSeatString, 10, 32)
+	return btnSeatInt, err
 }
 
 // scanHandLines scans the hand data line by line and generates a slice of players, actions and winners. Returns

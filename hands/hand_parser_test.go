@@ -38,7 +38,7 @@ func TestParseHandsAcceptance(t *testing.T) {
 			Metadata: Metadata{
 				ID:         "254446123323",
 				Date:       handTime.Local(),
-				ButtonSeat: 0,
+				ButtonSeat: 1,
 			},
 			Players: []Player{{"maximoIV", [2]Card{}, 1, 5.2}, {"dlourencobss", [2]Card{"8s", "9s"}, 2, 4.94}, {"KavarzE", [2]Card{"2s", "5d"}, 3, 5}, {"arsad725", [2]Card{}, 4, 5.49}, {"RE0309", [2]Card{}, 5, 4.63}, {"pernadao1599", [2]Card{"Jh", "Qc"}, 6, 3.43}},
 			Actions: []Action{
@@ -178,8 +178,9 @@ func TestParseMetadata(t *testing.T) {
 	metadata, _ := parseMetaData(handText)
 
 	metadataWant := Metadata{
-		ID:   "254489598204",
-		Date: handTime.Local(),
+		ID:         "254489598204",
+		Date:       handTime.Local(),
+		ButtonSeat: 1,
 	}
 
 	if metadata != metadataWant {
@@ -301,6 +302,7 @@ func TestExtractHandsFromFile(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		fileSystem := fstest.MapFS{
 			"zoom.txt": {Data: []byte(`PokerStars Hand #123: blah blah
+Table 'Halley' 6-max Seat #1 is the button
 Seat 1: test ($6000 in chips)
 Seat 2: KavarzE ($3000 in chips)
 Dealt to KavarzE [Ad Ac]
@@ -386,6 +388,7 @@ func TestParseHandData(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		filename := "test-file.txt"
 		handData := []byte(`PokerStars Hand #123: blah blah
+Table 'Euphemia II' 6-max (Play Money) Seat #3 is the button
 Seat 1: test ($6000 in chips)
 Seat 2: test2 ($3000 in chips)
 Dealt to test [Ad Ac]
@@ -414,7 +417,7 @@ Seat 1: KavarzE won ($3.80)`)
 		want := handImport{
 			filename,
 			Hand{
-				Metadata{"123", time.Time{}.Local(), 0},
+				Metadata{"123", time.Time{}.Local(), 3},
 				[]Player{
 					{Username: "test", Cards: [2]Card{"Ad", "Ac"}, Seat: 1, ChipCount: 6000},
 					{Username: "test2", Cards: [2]Card{"", ""}, Seat: 2, ChipCount: 3000}},
@@ -807,6 +810,36 @@ func TestWinnerFromHandText(t *testing.T) {
 		}
 	}
 
+}
+
+func TestExtractButtonSeatFromText(t *testing.T) {
+	cases := []struct {
+		test string
+		want int64
+	}{
+		{`PokerStars Hand #254446123323:  Hold'em No Limit ($0.02/$0.05 USD) - 2025/01/19 12:38:55 WET [2025/01/19 7:38:55 ET]
+Table 'Wei III' 6-max Seat #1 is the button
+Seat 1: maximoIV ($5.20 in chips)
+Seat 2: dlourencobss ($4.94 in chips)
+Seat 3: KavarzE ($5 in chips)
+Seat 4: arsad725 ($5.49 in chips)
+`, 1},
+		{`PokerStars Hand #231244441:  Hold'em No Limit ($0.02/$0.05 USD) - 2025/01/19 12:38:55 WET [2025/01/19 7:38:55 ET]
+Table 'Wei III' 6-max Seat #9 is the button`, 9},
+		{`6-max Seat #5 is the button`, 5},
+	}
+
+	for _, tt := range cases {
+		got, err := extractButtonSeatFromText(tt.test)
+
+		if err != nil {
+			t.Errorf("wanted nil error but got %v", err)
+		}
+
+		if got != tt.want {
+			t.Errorf("wanted %v but got %v", tt.want, got)
+		}
+	}
 }
 
 type failingFS struct{}
