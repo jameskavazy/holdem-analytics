@@ -470,7 +470,7 @@ func heroHandFromText(line string) (Player, bool, error) {
 
 func winnerFromLine(line string) (Winner, error) {
 
-	triggers := []string{"collected (", "won ("}
+	triggers := []string{"collected (", " won ("}
 
 	for _, t := range triggers {
 		if !strings.Contains(line, t) {
