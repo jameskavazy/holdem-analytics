@@ -46,7 +46,7 @@ const (
 // Global Errs
 var (
 	ErrFailToParseAction = errors.New("error no action found on text line")
-	ErrNoHandID          = errors.New("error no hand ID was found, unable parse. ignoring hand") // TODO: Perhaps make this a struct & add the file, hand info and error to struct.
+	ErrNoHandID          = errors.New("error no hand ID was found, unable parse. ignoring hand")
 	ErrPlayerInfo        = errors.New("error could not parse player info, not enough fields on line. hand data is corrupt")
 	errNoCurrency        = errors.New("error parsing Action.Amount, expected currency'")
 	errNoCommunityCards  = errors.New("error parsing the community cards in hand summary")
