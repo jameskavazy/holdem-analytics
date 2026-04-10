@@ -73,12 +73,6 @@ func parseHands(filename string, fileData *bufio.Scanner, handChan chan<- handIm
 	for fileData.Scan() {
 		handText := fileData.Text()
 
-		handText = strings.TrimSpace(handText)
-
-		if handText == "" {
-			continue
-		}
-
 		metadata, metadataErr := parseMetaData(handText)
 
 		if metadataErr != nil {
@@ -490,10 +484,10 @@ func winnerFromLine(line string) (Winner, error) {
 		firstSpace := strings.Index(contentBeforeTrigger, " ")
 		var playerName string
 		if firstSpace == -1 {
-			return Winner{}, fmt.Errorf("a winner was detected but could not find name of winner on line: %v", contentBeforeTrigger)
+			playerName = contentBeforeTrigger
+		} else {
+			playerName = contentBeforeTrigger[:firstSpace]
 		}
-
-		playerName = contentBeforeTrigger[:firstSpace]
 
 		return Winner{
 			PlayerName: playerName,
