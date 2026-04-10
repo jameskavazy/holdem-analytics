@@ -21,7 +21,7 @@ const (
 	newLine                 string = "\n"
 	flopSignifier           string = "*** FLOP ***"
 	turnSignifier           string = "*** TURN ***"
-	riverSignifier          string = "*** RIVER ***" //TODO players can run it twice... >  *** FIRST RIVER *** *** SECOND RIVER ***
+	riverSignifier          string = "*** RIVER ***"
 	summarySignifier        string = "*** SUMMARY ***"
 	heroHandPrefix          string = "Dealt to"
 	showedSignifier         string = "showed ["

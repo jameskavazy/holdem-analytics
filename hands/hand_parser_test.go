@@ -135,45 +135,74 @@ func TestParseHandsAcceptance(t *testing.T) {
 		assertHand(t, got.hand, want)
 	})
 
-	// t.Run("run it twice hand parse correctly", func(t *testing.T) {
-	// 	fileSystem := fstest.MapFS{
-	// 		"RIT": {Data: []byte(runItTwice)},
-	// 	}
-	// 	handHistory, _ := ExportHands(fileSystem)
-	// 	handTime, _ := time.Parse(time.DateTime, "2025-01-29 16:30:35")
+	t.Run("run it twice hand parse correctly", func(t *testing.T) {
+		fileSystem := fstest.MapFS{
+			"RIT": {Data: []byte(runItTwice)},
+		}
+		file, _ := fileSystem.Open("RIT")
+		scanner := bufio.NewScanner(file)
+		channel := make(chan handImport, 1)
 
-	// 	got := handHistory[0]
-	// 	want := Hand{
-	// 		Metadata: Metadata{
-	// 			ID:   "254607988518",
-	// 			Date: handTime.Local(),
-	// 		},
-	// 		Players: []Player{{"KavarzE", "Jc Js"}, {"TurivVB240492", ""}, {"RoMike2", ""}, {"hiroakin", ""}, {"ThxWasOby3", "Ah Qd"}, {"VLSALT", ""}},
-	// 		Actions: []Action{
-	// 			actionBuildHelper("KavarzE", Posts, Preflop, 1, 0.02),
-	// 			actionBuildHelper("RoMike2", Posts, Preflop, 2, 0.05),
-	// 			actionBuildHelper("hiroakin", Folds, Preflop, 3, 0.0),
-	// 			actionBuildHelper("ThxWasOby3", Raises, Preflop, 4, 0.10),
-	// 			actionBuildHelper("VLSALT", Folds, Preflop, 5, 0),
-	// 			actionBuildHelper("TurivVB240492", Folds, Preflop, 6, 0),
-	// 			actionBuildHelper("KavarzE", Raises, Preflop, 7, 0.45),
-	// 			actionBuildHelper("RoMike2", Folds, Preflop, 8, 0),
-	// 			actionBuildHelper("ThxWasOby3", Raises, Preflop, 9, 0.72),
-	// 			actionBuildHelper("KavarzE", Calls, Preflop, 10, 0.72),
-	// 			actionBuildHelper("KavarzE", Checks, Flop, 11, 0),
-	// 			actionBuildHelper("ThxWasOby3", Checks, Flop, 12, 0),
-	// 			actionBuildHelper("KavarzE", Bets, Turn, 13, 1.81),
-	// 			actionBuildHelper("ThxWasOby3", Raises, Turn, 14, 2.09),
-	// 			actionBuildHelper("KavarzE", Calls, Turn, 15, 2.09),
-	// 		},
-	// 		Summary: Summary{
-	// 			CommunityCards: []string{"7d 2h 8h Jh 3d", "7d 2h 8h Jh Qh"},
-	// 			Pot:            10.49,
-	// 			Rake:           0.44,
-	// 		},
-	// 	}
-	// 	assertHand(t, got, want)
-	// })
+		ok, _ := parseHands("RIT", scanner, channel)
+
+		if !ok {
+			t.Fatal("wanted parseHands to be ok=true but got false")
+		}
+
+		handTime, _ := time.Parse(time.DateTime, "2025-01-29 16:30:35")
+
+		got := <-channel
+		want := Hand{
+			Metadata: Metadata{
+				ID:         "254607988518",
+				Date:       handTime.Local(),
+				ButtonSeat: 1,
+			},
+			Players: []Player{
+				{"TurivVB240492", [2]Card{}, 1, 1.94},
+				{"KavarzE", [2]Card{"Jc", "Js"}, 2, 15.14},
+				{"RoMike2", [2]Card{}, 3, 5.07},
+				{"hiroakin", [2]Card{}, 4, 5},
+				{"ThxWasOby3", [2]Card{"Ah", "Qd"}, 5, 5.22},
+				{"VLSALT", [2]Card{}, 6, 5},
+			},
+			Actions: []Action{
+				actionBuildHelper("KavarzE", Posts, Preflop, 1, 0.02),
+				actionBuildHelper("RoMike2", Posts, Preflop, 2, 0.05),
+				actionBuildHelper("hiroakin", Folds, Preflop, 3, 0.0),
+				actionBuildHelper("ThxWasOby3", Raises, Preflop, 4, 0.10),
+				actionBuildHelper("VLSALT", Folds, Preflop, 5, 0),
+				actionBuildHelper("TurivVB240492", Folds, Preflop, 6, 0),
+				actionBuildHelper("KavarzE", Raises, Preflop, 7, 0.45),
+				actionBuildHelper("RoMike2", Folds, Preflop, 8, 0),
+				actionBuildHelper("ThxWasOby3", Raises, Preflop, 9, 0.72),
+				actionBuildHelper("KavarzE", Calls, Preflop, 10, 0.72),
+				actionBuildHelper("KavarzE", Checks, Flop, 11, 0),
+				actionBuildHelper("ThxWasOby3", Checks, Flop, 12, 0),
+				actionBuildHelper("KavarzE", Bets, Turn, 13, 1.81),
+				actionBuildHelper("ThxWasOby3", Raises, Turn, 14, 2.09),
+				actionBuildHelper("KavarzE", Calls, Turn, 15, 2.09),
+			},
+			Summary: Summary{
+				CommunityCards: [2]CommunityCards{
+					{Flop: [3]Card{"7d", "2h", "8h"},
+						Turn:  Card("Jh"),
+						River: Card("3d")},
+					{
+						Flop:  [3]Card{"7d", "2h", "8h"},
+						Turn:  Card("Jh"),
+						River: Card("Qh"),
+					}},
+				Pot:  10.49,
+				Rake: 0.44,
+				Winners: []Winner{
+					{PlayerName: "KavarzE", Amount: 5.03},
+					{PlayerName: "ThxWasOby3", Amount: 5.02},
+				},
+			},
+		}
+		assertHand(t, got.hand, want)
+	})
 }
 
 func TestActionTypeFromText(t *testing.T) {
@@ -225,7 +254,6 @@ func TestParseHandSummary(t *testing.T) {
 			{}},
 		Winners: []Winner{},
 	}
-	// WHAT
 	if !reflect.DeepEqual(summary, summaryWant) {
 		t.Errorf("got %#v, but wanted %#v", summary, summaryWant)
 	}
@@ -1248,3 +1276,52 @@ Seat 3: nm8800 (big blind) folded before Flop
 Seat 4: Chewbacca97 folded before Flop (didn't bet)
 Seat 5: KavarzE folded on the Turn
 Seat 6: haeorm folded before Flop (didn't bet)`
+
+const runItTwice string = `PokerStars Zoom Hand #254607988518:  Hold'em No Limit ($0.02/$0.05) - 2025/01/29 16:30:35 WET [2025/01/29 11:30:35 ET]
+Table 'Donati' 6-max Seat #1 is the button
+Seat 1: TurivVB240492 ($1.94 in chips)
+Seat 2: KavarzE ($15.14 in chips)
+Seat 3: RoMike2 ($5.07 in chips)
+Seat 4: hiroakin ($5 in chips)
+Seat 5: ThxWasOby3 ($5.22 in chips)
+Seat 6: VLSALT ($5 in chips)
+KavarzE: posts small blind $0.02
+RoMike2: posts big blind $0.05
+*** HOLE CARDS ***
+Dealt to KavarzE [Jc Js]
+hiroakin: folds
+ThxWasOby3: raises $0.10 to $0.15
+VLSALT: folds
+TurivVB240492: folds
+KavarzE: raises $0.45 to $0.60
+RoMike2: folds
+ThxWasOby3: raises $0.72 to $1.32
+KavarzE: calls $0.72
+*** FLOP *** [7d 2h 8h]
+KavarzE: checks
+ThxWasOby3: checks
+*** TURN *** [7d 2h 8h] [Jh]
+KavarzE: bets $1.81
+ThxWasOby3: raises $2.09 to $3.90 and is all-in
+KavarzE: calls $2.09
+*** FIRST RIVER *** [7d 2h 8h Jh] [3d]
+*** SECOND RIVER *** [7d 2h 8h Jh] [Qh]
+*** FIRST SHOW DOWN ***
+KavarzE: shows [Jc Js] (three of a kind, Jacks)
+ThxWasOby3: shows [Ah Qd] (high card Ace)
+KavarzE collected $5.03 from pot
+*** SECOND SHOW DOWN ***
+KavarzE: shows [Jc Js] (three of a kind, Jacks)
+ThxWasOby3: shows [Ah Qd] (a flush, Ace high)
+ThxWasOby3 collected $5.02 from pot
+*** SUMMARY ***
+Total pot $10.49 | Rake $0.44
+Hand was run twice
+FIRST Board [7d 2h 8h Jh 3d]
+SECOND Board [7d 2h 8h Jh Qh]
+Seat 1: TurivVB240492 (button) folded before Flop (didn't bet)
+Seat 2: KavarzE (small blind) showed [Jc Js] and won ($5.03) with three of a kind, Jacks, and lost with three of a kind, Jacks
+Seat 3: RoMike2 (big blind) folded before Flop
+Seat 4: hiroakin folded before Flop (didn't bet)
+Seat 5: ThxWasOby3 showed [Ah Qd] and lost with high card Ace, and won ($5.02) with a flush, Ace high
+Seat 6: VLSALT folded before Flop (didn't bet)`
