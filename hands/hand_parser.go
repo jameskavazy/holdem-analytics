@@ -320,10 +320,11 @@ func actionTypeFromText(line string) (ActionType, bool) {
 }
 
 func actionPlayerNameFromText(line string) (string, error) {
-	if strings.Contains(line, ":") {
-		return strings.Split(line, ":")[0], nil
+	before, _, found := strings.Cut(line, ":")
+	if !found {
+		return "", errors.New("could not parse name in action")
 	}
-	return "", errors.New("could not parse name in action")
+	return before, nil
 }
 
 // actionAmountFromText returns the monetary amount of the action. Returns an error if no currency found.
