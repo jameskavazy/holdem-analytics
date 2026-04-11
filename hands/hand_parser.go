@@ -155,8 +155,7 @@ func parseHandSummary(summaryText string) (Summary, error) {
 func parseMetaData(handText string) (Metadata, error) {
 	handID := handIDFromText(handText)
 	if handID == "" {
-		shortHand := ellipsis(handText, 100) // Truncate hand info for error
-		return Metadata{}, NoHandIDError(fmt.Sprintf("in hand %#v", shortHand))
+		return Metadata{}, NoHandIDError(fmt.Sprintf("in hand %#v", handText))
 	}
 	dateTime := parseDateTime(dateTimeFromText(handText))
 
@@ -417,14 +416,15 @@ func playerInfoFromText(line string, cardPrefix string) (Player, bool, error) {
 	if len(fields) < 4 {
 		return Player{}, false, PlayerInfoError(fmt.Sprintf("not enough fields on line %s, expected 4 fields", line))
 	}
-	playerName := strings.Fields(line)[2]
+	playerName := fields[2]
 	cards := [2]Card{}
 
 	if cardPrefix != "" {
-		fields := strings.Fields(substringBetween(line, cardPrefix, "]"))
-		if len(fields) >= 2 {
-			cards[0] = Card(fields[0])
-			cards[1] = Card(fields[1])
+		cardString := substringBetween(line, cardPrefix, "]")
+		before, after, ok := strings.Cut(cardString, " ")
+		if ok {
+			cards[0] = Card(before)
+			cards[1] = Card(after)
 		} else {
 			return Player{}, false, PlayerInfoError(fmt.Sprintf("not enough fields on line %s, expected 2 fields for cards", line))
 		}
@@ -443,13 +443,14 @@ func heroHandFromText(line string) (Player, bool, error) {
 	if len(fields) != 5 {
 		return Player{}, false, PlayerInfoError(fmt.Sprintf("could not extract hero name, not enough fields on line %s, expected 5 fields", line))
 	}
-	playerName := strings.Fields(line)[2]
+	playerName := fields[2]
 	cards := [2]Card{}
 
-	cardFields := strings.Fields(substringBetween(line, "[", "]"))
-	if len(cardFields) >= 2 {
-		cards[0] = Card(cardFields[0])
-		cards[1] = Card(cardFields[1])
+	cardString := substringBetween(line, "[", "]")
+	before, after, ok := strings.Cut(cardString, " ")
+	if ok {
+		cards[0] = Card(before)
+		cards[1] = Card(after)
 	} else {
 		return Player{}, false, PlayerInfoError(fmt.Sprintf("not enough fields on line %s, expected 2 fields for cards", line))
 	}
@@ -460,7 +461,6 @@ func heroHandFromText(line string) (Player, bool, error) {
 		},
 		true,
 		nil
-
 }
 
 func winnerFromLine(line string) (Winner, error) {
@@ -568,26 +568,13 @@ func substringBetween(text, start, end string) string {
 		return text
 	}
 	startSubString := text[startIndex+len(start):]
-	endIndex := strings.Index(startSubString, end)
+	before, _, ok := strings.Cut(startSubString, end)
 
-	if endIndex == -1 || startIndex+len(start) > len(text) {
+	if !ok || startIndex+len(start) > len(text) {
 		return text
 	}
 
-	return startSubString[:endIndex]
-}
-
-// ellipsis truncates a given string by the max length of characters provided and appends with ellipsis.
-// If the length of string is less than the maxLen the whole string is return untruncated.
-func ellipsis(s string, maxLen int) string {
-	runes := []rune(s)
-	if len(runes) <= maxLen {
-		return s
-	}
-	if maxLen < 3 {
-		maxLen = 3
-	}
-	return string(runes[0:maxLen-3]) + "..."
+	return before
 }
 
 // CreateHandScanner returns a pointer to bufio.Scanner for parsing Hand data
