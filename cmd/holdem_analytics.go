@@ -9,8 +9,16 @@ import (
 )
 
 func main() {
-	targetDir := filepath.Join("C:", "Users", "james", "testfolder")
-	proccessedDir := filepath.Join(targetDir, "processed")
+	args := os.Args
+	argsLen := len(args)
+	if argsLen > 2 {
+		log.Fatal("too many arguments provided.\n example usage: ./holdem-analytics <hand history folder path>")
+	} else if argsLen < 2 {
+		log.Fatal("not enough arguments provided.\n example usage: ./holdem-analytics <hand history folder path>")
+	}
+
+	targetDir := args[1]
+	proccessedDir := filepath.Join(targetDir, "Processed By Holdem Analytics")
 
 	fileSystem := os.DirFS(targetDir)
 

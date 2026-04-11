@@ -9,7 +9,7 @@ import (
 func BenchmarkHandHistoryFromFS(b *testing.B) {
 	fileSystem := os.DirFS("C:\\Users\\james\\testfolder")
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		hands.ExportHands(fileSystem)
 	}
 }
