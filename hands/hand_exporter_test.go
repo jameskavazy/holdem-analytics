@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"reflect"
+	"slices"
 	"testing"
 	"testing/fstest"
 )
@@ -170,6 +172,29 @@ func TestCheckFailureRate(t *testing.T) {
 
 	if !ok {
 		t.Fatal("wanted true checkFailureRate but was false")
+	}
+}
+
+func TestSuccessFiles(t *testing.T) {
+	fileSystem := fstest.MapFS{
+		"zoom.txt": {Data: []byte(testHands)},
+		"rit.txt": {Data: []byte(runItTwice)},
+		"zoom2.txt": {Data: []byte(testHands)},
+		"zoom3.txt": {Data: []byte(testHands)},
+		"zoom4.txt": {Data: []byte(testHands)},
+	}
+	
+
+	result := ExportHands(fileSystem)
+
+	got := result.SuccessFiles()
+	want := []string{"zoom.txt", "rit.txt", "zoom2.txt", "zoom3.txt", "zoom4.txt" }
+
+	slices.Sort(got)
+	slices.Sort(want)
+
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("wanted %#v but got %#v", want, got)
 	}
 }
 

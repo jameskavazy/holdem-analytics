@@ -77,6 +77,17 @@ func (e *ExportResult) SuccessCount() int {
 	return len(e.FileResults) - e.FileErrorCount()
 }
 
+// SuccessFiles returns a list of file names that were successful
+func (e *ExportResult) SuccessFiles() []string {
+	successFiles := make([]string, 0, 3)
+	for _, s := range e.FileResults {
+		if s.Err == nil {
+			successFiles = append(successFiles, s.Path)
+		}
+	}
+	return successFiles
+}
+
 type handImport struct {
 	filePath string
 	hand     Hand
@@ -146,7 +157,6 @@ func collectResults(handsChannel <-chan handImport) ExportResult {
 
 	for h := range handsChannel {
 
-		// TODO We can receive the hands up to a 5k chunk and then commit to a database!
 		if _, ok := counter[h.filePath]; !ok {
 			counter[h.filePath] = &fileCounter{}
 		}
@@ -164,8 +174,6 @@ func collectResults(handsChannel <-chan handImport) ExportResult {
 		} else {
 			counter[h.filePath].success++
 		}
-		// TODO: upon receiving the handImport we can pass off to our backend. Spawn another goroutine here?
-
 	}
 	fileResults := extractFileResults(counter)
 

@@ -482,12 +482,12 @@ func winnerFromLine(line string) (Winner, error) {
 
 		contentBeforeTrigger := substringBetween(line, ": ", t)
 
-		firstSpace := strings.Index(contentBeforeTrigger, " ")
+		before, _, ok := strings.Cut(contentBeforeTrigger, " ")
 		var playerName string
-		if firstSpace == -1 {
+		if !ok {
 			playerName = contentBeforeTrigger
 		} else {
-			playerName = contentBeforeTrigger[:firstSpace]
+			playerName = before
 		}
 
 		return Winner{
