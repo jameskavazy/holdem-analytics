@@ -2,21 +2,10 @@
 // text file data into structured data ready for downstream analytics
 package hands
 
-// TODO - At some point we're going to want to make an interface of sorts so that we handle Pokerstars hands, Party poker hands. etc.
-// so Hand will actually be an interface and there'll be a pokerstarshand struct that implements hand interface... methods TBD.
-// equally each hand
-
-// // We'd need some kind of continual running to scan the FS for new hand files and keep reading from the same particular one.
-// func GetHandsWhilePlaying() {
-//     TODO - detect latest file in HH fs. Open file & parse changes to it?
-// }
-
-// TODO - RETURN uncalled bet needs to be parsed otherwise the valulations of what happened just aren't right...
-
 import (
+	"bytes"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -30,12 +19,12 @@ const (
 
 // ActionType - the type of player actions
 const (
-	Folds  ActionType = "folds"
-	Checks ActionType = "checks"
-	Calls  ActionType = "calls"
-	Bets   ActionType = "bets"
-	Raises ActionType = "raises"
-	Posts  ActionType = "posts"
+	Folds  ActionType = " folds"
+	Checks ActionType = " checks"
+	Calls  ActionType = " calls"
+	Bets   ActionType = " bets"
+	Raises ActionType = " raises"
+	Posts  ActionType = " posts"
 )
 
 // Currencies constants
@@ -143,13 +132,13 @@ func (t ActionType) String() string {
 	return string(t)
 }
 
-func (s *Street) next(line string) {
+func (s *Street) next(line []byte) {
 	switch {
-	case strings.Contains(line, flopSignifier):
+	case bytes.Contains(line, flopSignifier):
 		*s = Flop
-	case strings.Contains(line, turnSignifier):
+	case bytes.Contains(line, turnSignifier):
 		*s = Turn
-	case strings.Contains(line, riverSignifier):
+	case bytes.Contains(line, riverSignifier):
 		*s = River
 	}
 }

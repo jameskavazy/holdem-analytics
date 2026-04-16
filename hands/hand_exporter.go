@@ -126,9 +126,6 @@ func streamHands(fileSystem fs.FS, dir []fs.DirEntry) <-chan handImport {
 	handsChannel := make(chan handImport, 10000)
 
 	for _, file := range dir {
-		// TODO - move file once processed... also some sort of logic that works out once whole file is read to move it? Get Hands While Playing...
-		// TODO - FILENAME will contain the currency type, set up some enums... etc.
-		// Count the number of duplicates...
 		if !file.IsDir() {
 			wg.Add(1)
 			go func(f fs.DirEntry) {

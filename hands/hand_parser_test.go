@@ -207,22 +207,22 @@ func TestParseHandsAcceptance(t *testing.T) {
 
 func TestActionTypeFromText(t *testing.T) {
 	cases := map[string]ActionType{
-		"kv_def: posts small blind $0.02": "posts",
-		"KavarzE: posts big blind $0.05":  "posts",
-		"arsad725: folds":                 "folds",
-		"RE0309: calls $0.05":             "calls",
-		"pernadao1599: calls $0.05":       "calls",
-		"maximoIV: folds":                 "folds",
-		"dlourencobss: calls $0.03":       "calls",
-		"KavarzE: checks":                 "checks",
-		"dlourencobss: bets $0.10":        "bets",
-		"KavarzE: folds":                  "folds",
-		"RE0309: folds":                   "folds",
-		"pernadao1599: calls $0.10":       "calls",
-		"dlourencobss: bets $0.27":        "bets",
-		"pernadao1599: calls $0.27":       "calls",
-		"dlourencobss: checks":            "checks",
-		"pernadao1599: checks":            "checks",
+		"kv_def: posts small blind $0.02": " posts",
+		"KavarzE: posts big blind $0.05":  " posts",
+		"arsad725: folds":                 " folds",
+		"RE0309: calls $0.05":             " calls",
+		"pernadao1599: calls $0.05":       " calls",
+		"maximoIV: folds ":                " folds",
+		"dlourencobss: calls $0.03":       " calls",
+		"KavarzE: checks":                 " checks",
+		"dlourencobss: bets $0.10":        " bets",
+		"KavarzE: folds":                  " folds",
+		"RE0309: folds":                   " folds",
+		"pernadao1599: calls $0.10":       " calls",
+		"dlourencobss: bets $0.27":        " bets",
+		"pernadao1599: calls $0.27":       " calls",
+		"dlourencobss: checks":            " checks",
+		"pernadao1599: checks":            " checks",
 	}
 
 	for c, want := range cases {
@@ -230,7 +230,7 @@ func TestActionTypeFromText(t *testing.T) {
 		fmt.Fprintf(&buffer, "Post Scenario: %v", c)
 
 		t.Run(buffer.String(), func(t *testing.T) {
-			got, _ := actionTypeFromText(c)
+			got, _ := actionTypeFromText([]byte(c))
 			if got != want {
 				t.Errorf("got %v, but wanted %v", got, want)
 			}
@@ -241,7 +241,7 @@ func TestActionTypeFromText(t *testing.T) {
 func TestParseHandSummary(t *testing.T) {
 	handText := handSummary
 
-	summary, _ := parseHandSummary(handText)
+	summary, _ := parseHandSummary([]byte(handText))
 
 	summaryWant := Summary{
 		Pot:  0.36,
@@ -262,7 +262,7 @@ func TestParseHandSummary(t *testing.T) {
 func TestParseMetadata(t *testing.T) {
 	handText := testHands
 	handTime, _ := time.Parse(time.DateTime, "2025-01-21 20:51:32")
-	metadata, _ := parseMetaData(handText)
+	metadata, _ := parseMetaData([]byte(handText))
 
 	metadataWant := Metadata{
 		ID:         "254489598204",
@@ -300,13 +300,13 @@ func TestPlayerNameActionFromText(t *testing.T) {
 		fmt.Fprintf(&buffer, "Post Scenario: %v", c)
 
 		t.Run(buffer.String(), func(t *testing.T) {
-			got, err := actionPlayerNameFromText(c)
+			got, err := actionPlayerNameFromText([]byte(c))
 
 			if err != nil {
 				t.Error("failed to parse name but should have")
 			}
 
-			if got != want {
+			if string(got) != want {
 				t.Errorf("got %v, but wanted %v", got, want)
 			}
 		})
@@ -340,7 +340,7 @@ func TestActionAmountFromText(t *testing.T) {
 			fmt.Fprintf(&buffer, "Scenario: %v", c)
 
 			t.Run(buffer.String(), func(t *testing.T) {
-				got, _ := actionAmountFromText(c)
+				got, _ := actionAmountFromText([]byte(c))
 				if got != want {
 					t.Errorf("got %v, but wanted %v", got, want)
 				}
@@ -356,7 +356,7 @@ func TestActionAmountFromText(t *testing.T) {
 
 		for c, want := range cases {
 			t.Run(c, func(t *testing.T) {
-				got, _ := actionAmountFromText(c)
+				got, _ := actionAmountFromText([]byte(c))
 				if got != want {
 					t.Errorf("got %v, but wanted %v", got, want)
 				}
@@ -373,7 +373,7 @@ func TestActionAmountFromText(t *testing.T) {
 
 		for _, c := range cases {
 			t.Run(c, func(t *testing.T) {
-				_, err := actionAmountFromText(c)
+				_, err := actionAmountFromText([]byte(c))
 				want := CurrencyError(fmt.Sprintf("on line %v", c)).Error()
 
 				if err.Error() != want {
@@ -602,23 +602,19 @@ Seat 1: KavarzE won ($3.80)`)
 func TestHandIdFromText(t *testing.T) {
 	handData := "Pokerstars Hand #6548679821301346841: Holdem don't care"
 
-	got := handIDFromText(handData)
-	want := "6548679821301346841"
+	got := handIDFromText([]byte(handData))
+	want := []byte("6548679821301346841")
 
-	if got != want {
+	if string(got) != string(want) {
 		t.Errorf("got %v wanted %v", got, want)
 	}
 }
 
 func TestActionsFromText(t *testing.T) {
-	// dummyActions := []Action{
-	// 	{Player{"Kavarz", ""}, 2, Flop, Bets, 3},
-	// 	{Player{"Burty", ""}, 3, Flop, Calls, 3},
-	// }
 	var dummyStreet = Flop
 	order := 1
 
-	handData := `Kavarz: bets $3`
+	handData := []byte(`Kavarz: bets $3`)
 
 	got, _, err := parseActionLine(handData, &dummyStreet, &order)
 	if err != nil {
@@ -654,8 +650,8 @@ func TestDateFromHandText(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.test, func(t *testing.T) {
 
-			got := dateTimeFromText(tt.test)
-			if got != tt.want {
+			got := dateTimeFromText([]byte(tt.test))
+			if string(got) != string(tt.want) {
 				t.Errorf("got %v but wanted %v", got, tt.want)
 			}
 
@@ -664,7 +660,7 @@ func TestDateFromHandText(t *testing.T) {
 }
 
 func TestParseDateTime(t *testing.T) {
-	info := "2025-01-27 12:49:38"
+	info := []byte("2025-01-27 12:49:38")
 
 	got := parseDateTime(info)
 	localTime, _ := time.Parse(time.DateTime, "2025-01-27 17:49:38")
@@ -686,7 +682,7 @@ func TestSeatIntFromText(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.test, func(t *testing.T) {
-			got, err := seatIntFromText(tt.test)
+			got, err := seatIntFromText([]byte(tt.test))
 
 			if got != tt.want {
 				t.Errorf("got %d but we wanted %d", got, tt.want)
@@ -701,7 +697,7 @@ func TestSeatIntFromText(t *testing.T) {
 
 func TestCommunityCardsFromText(t *testing.T) {
 	handText := testHands
-	got := communityCardsFromText(handText, boardSignifier)
+	got := communityCardsFromText([]byte(handText), boardSignifier)
 
 	if got.Flop != [3]Card{"Qc", "As", "3d"} {
 		t.Errorf("wanted %#v community cards but got %#v", [3]Card{"Qc", "As", "3d"}, got.Flop)
@@ -719,10 +715,6 @@ func TestPlayerCardsFromText(t *testing.T) {
 	}{
 		{`Seat 2: KavarzE (small blind) showed [Jc Js] and won ($5.03) with three of a kind, Jacks, and lost with three of a kind, Jacks`, Player{"KavarzE", [2]Card{"Jc", "Js"}, 0, 0}},
 		{`Seat 1: acsy797 (button) mucked [Jd Ks]`, Player{"acsy797", [2]Card{"Jd", "Ks"}, 0, 0}},
-		// {`Seat 1: KavarzE (big blind) collected ($0.04)`, Player{"KavarzE", ""}},
-		// {`Seat 4: VanillaLight (big blind) collected ($0.04)`, Player{"VanillaLight", ""}},
-		// {`Seat 4: JSIrony collected ($0.23)`, Player{"JSIrony", ""}},
-		// {`Seat 6: Imbastrol folded before Flop (didn't bet)`, Player{"Imbastrol", ""}},
 		{`Dealt to KavarzE [Js 5c]`, Player{"KavarzE", [2]Card{"Js", "5c"}, 0, 0}},
 		{`Seat 6: KavarzE ($1.97 in chips) `, Player{"KavarzE", [2]Card{}, 6, 1.97}},
 	}
@@ -730,21 +722,7 @@ func TestPlayerCardsFromText(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.test, func(t *testing.T) {
 
-			// var prefix string
-			// if strings.Contains(tt.test, "showed [") {
-			// 	prefix = "showed ["
-			// }
-			// if strings.Contains(tt.test, "mucked [") {
-			// 	prefix = "mucked ["
-			// }
-			// if strings.Contains(tt.test, "Dealt to") {
-			// 	prefix = "["
-			// }
-			// if strings.Contains(tt.test, "Seat ") {
-
-			// }
-
-			got, _, _ := parsePlayer(tt.test)
+			got, _, _ := parsePlayer([]byte(tt.test))
 
 			if got != tt.want {
 				t.Errorf("got %v but we wanted %v", got, tt.want)
@@ -768,7 +746,7 @@ func TestPotFromText(t *testing.T) {
 		}
 
 		for _, tt := range cases {
-			gotPot, gotRake, err := potFromText(tt.test)
+			gotPot, gotRake, err := potFromText([]byte(tt.test))
 
 			if err != nil {
 				t.Error("expected nil error but got one")
@@ -796,7 +774,7 @@ func TestPotFromText(t *testing.T) {
 		}
 
 		for _, tt := range cases {
-			gotPot, gotRake, err := potFromText(tt.test)
+			gotPot, gotRake, err := potFromText([]byte(tt.test))
 
 			if err == nil {
 				t.Errorf("expected err but didn't get one. case: %v", tt.test)
@@ -813,7 +791,7 @@ func TestPotFromText(t *testing.T) {
 	})
 
 	t.Run("non total pot/rake line", func(t *testing.T) {
-		gotPot, gotRake, err := potFromText("Seat 1: KavarzE won ($3.89)")
+		gotPot, gotRake, err := potFromText([]byte("Seat 1: KavarzE won ($3.89)"))
 
 		if gotPot != 0 {
 			t.Errorf("wanted 0 but got %v", gotPot)
@@ -882,7 +860,7 @@ func TestWinnerFromHandText(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		got, err := winnerFromLine(tt.test)
+		got, err := winnerFromLine([]byte(tt.test))
 		if err != nil {
 			t.Fatalf("got an error but got: %v", err)
 		}
@@ -916,7 +894,7 @@ Table 'Wei III' 6-max Seat #9 is the button`, 9},
 	}
 
 	for _, tt := range cases {
-		got, err := extractButtonSeatFromText(tt.test)
+		got, err := extractButtonSeatFromText([]byte(tt.test))
 
 		if err != nil {
 			t.Errorf("wanted nil error but got %v", err)
@@ -959,9 +937,9 @@ Seat 1: TSCardinals ($2.02 in chips)
 	}
 
 	for _, tt := range cases {
-		got := substringBetween(tt.test, tt.start, tt.end)
+		got := substringBetween([]byte(tt.test), []byte(tt.start), []byte(tt.end))
 
-		if got != tt.want {
+		if string(got) != string(tt.want) {
 			t.Errorf("wanted %v but got %v", tt.want, got)
 		}
 	}
