@@ -173,7 +173,7 @@ func extractButtonSeatFromText(handBytes []byte) (int64, error) {
 // a non-nil error if an error was received from the parse helper functions.
 func scanHandLines(handText []byte) ([]Player, []Action, []Winner, error) {
 
-	playersMap := map[string]*Player{}
+	playersMap := map[string]Player{}
 	var actions []Action
 	var winners []Winner
 	var street = Preflop
@@ -181,6 +181,10 @@ func scanHandLines(handText []byte) ([]Player, []Action, []Winner, error) {
 
 	lines := bytes.SplitSeq(handText, newLine)
 	for line := range lines {
+		if len(line) == 0 {
+			continue
+		}
+
 		actionResult, actionFound, actionErr := parseActionLine(line, &street, &order)
 
 		if actionErr != nil {
@@ -218,11 +222,11 @@ func scanHandLines(handText []byte) ([]Player, []Action, []Winner, error) {
 }
 
 // converToSlice takes a playerMap and returns a []Player ordered by seat position
-func convertToSlice(playersMap map[string]*Player) []Player {
+func convertToSlice(playersMap map[string]Player) []Player {
 	playersSlice := make([]Player, len(playersMap))
 	i := 0
 	for _, v := range playersMap {
-		playersSlice[i] = *v
+		playersSlice[i] = v
 		i++
 	}
 	slices.SortFunc(playersSlice, func(a, b Player) int {
@@ -516,13 +520,12 @@ func dateTimeFromText(line []byte) []byte {
 		timeString = substringBetween(line, []byte("["), []byte(" ET]"))
 	}
 
-	formattedTimeString := bytes.Map(func(r rune) rune {
-		if r == '/' {
-			return '-'
+	for i := range timeString {
+		if timeString[i] == '/' {
+			timeString[i] = '-'
 		}
-		return r
-	}, timeString)
-	return formattedTimeString
+	}
+	return timeString
 }
 
 func potFromText(handBytes []byte) (float64, float64, error) {
@@ -543,14 +546,15 @@ func potFromText(handBytes []byte) (float64, float64, error) {
 	return 0, 0, nil
 }
 
-func updateOrAddPlayer(players map[string]*Player, player Player) {
+func updateOrAddPlayer(players map[string]Player, player Player) {
 	if p, ok := players[player.Username]; ok {
-		if p.Cards == [2]Card{"", ""} {
+		if p.Cards[0] == "" {
 			p.Cards = player.Cards
+			players[player.Username] = p
 		}
 	} else {
 		newPlayer := player
-		players[player.Username] = &newPlayer
+		players[player.Username] = newPlayer
 	}
 }
 

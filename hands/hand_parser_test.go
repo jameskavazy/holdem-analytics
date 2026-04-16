@@ -810,7 +810,7 @@ func TestPotFromText(t *testing.T) {
 }
 
 func TestUpdateOrAppendPlayer(t *testing.T) {
-	players := map[string]*Player{
+	players := map[string]Player{
 		"KavarzE": {"KavarzE", [2]Card{"", ""}, 1, 6.00},
 		"Javormy": {"Javormy", [2]Card{"", ""}, 2, 33.00},
 		"noob":    {"noob", [2]Card{"", ""}, 3, 4.00},
@@ -818,7 +818,8 @@ func TestUpdateOrAppendPlayer(t *testing.T) {
 
 	updateOrAddPlayer(
 		players,
-		Player{"KavarzE", [2]Card{"Ac", "Ad"}, 1, 6.00})
+		Player{"KavarzE", [2]Card{"Ac", "Ad"}, 1, 6.00},
+	)
 
 	if len(players) != 3 {
 		t.Errorf("expected player length of 3 but got %v", len(players))
@@ -832,7 +833,7 @@ func TestUpdateOrAppendPlayer(t *testing.T) {
 }
 
 func TestConvertToSlice(t *testing.T) {
-	players := map[string]*Player{
+	players := map[string]Player{
 		"KavarzE": {"KavarzE", [2]Card{"", ""}, 1, 6.00},
 		"Javormy": {"Javormy", [2]Card{"", ""}, 3, 33.00},
 		"noob":    {"noob", [2]Card{"", ""}, 2, 4.00},
