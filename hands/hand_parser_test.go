@@ -651,7 +651,7 @@ func TestDateFromHandText(t *testing.T) {
 		t.Run(tt.test, func(t *testing.T) {
 
 			got := dateTimeFromText([]byte(tt.test))
-			if string(got) != string(tt.want) {
+			if string(got) != tt.want {
 				t.Errorf("got %v but wanted %v", got, tt.want)
 			}
 
@@ -940,7 +940,7 @@ Seat 1: TSCardinals ($2.02 in chips)
 	for _, tt := range cases {
 		got := substringBetween([]byte(tt.test), []byte(tt.start), []byte(tt.end))
 
-		if string(got) != string(tt.want) {
+		if string(got) != tt.want {
 			t.Errorf("wanted %v but got %v", tt.want, got)
 		}
 	}
