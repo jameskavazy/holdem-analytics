@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 )
 
-// TODO: Build a separate package to handle filesystem interactions e.g. fsnotify watcher and moving processed files around...
-
 // MoveProcessedFiles moves a file to specified destination under newPath. It first checks that the directory in newPath exists, and creates it if required.
 func MoveProcessedFiles(oldPath, newPath string) error {
 	found, err := checkDirExists(filepath.Dir(newPath))

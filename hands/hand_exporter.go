@@ -112,12 +112,8 @@ func ExportHands(fileSystem fs.FS) ExportResult {
 		}
 	}
 
-	// TODO create a worker pool if dir len > 10
-	// runtime.NumCPU() for numWorkers range filesChannel and hands from sessionfile to hands CHan
-
 	handsChannel := streamHands(fileSystem, dir)
 
-	// map - add filename to map, and increment counter...
 	return collectResults(handsChannel)
 }
 
@@ -127,16 +123,15 @@ func streamHands(fileSystem fs.FS, dir []fs.DirEntry) <-chan handImport {
 
 	for _, file := range dir {
 		if !file.IsDir() {
-			wg.Add(1)
-			go func(f fs.DirEntry) {
-				defer wg.Done()
-				ok, fsErr := extractHandsFromFile(fileSystem, f.Name(), handsChannel)
+			wg.Go(func() {
+				fileName := file.Name()
+				ok, fsErr := extractHandsFromFile(fileSystem, fileName, handsChannel)
 
 				if !ok {
-					log.Printf("An error occurred parsing file %s: %#v", f.Name(), fsErr.Error())
-					handsChannel <- handImport{filePath: f.Name(), fileErr: true}
+					log.Printf("An error occurred parsing file %s: %#v", fileName, fsErr.Error())
+					handsChannel <- handImport{filePath: fileName, fileErr: true}
 				}
-			}(file)
+			})
 		}
 	}
 
