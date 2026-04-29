@@ -851,30 +851,70 @@ func TestConvertToSlice(t *testing.T) {
 }
 
 func TestWinnerFromHandText(t *testing.T) {
-
 	cases := []struct {
-		test string
-		want Winner
+		name string
+		line string
+		want []Winner
 	}{
-		{"Seat 2: kv_def (small blind) collected ($0.35)", Winner{"kv_def", 0.35}},
-		{"Seat 4: lukebartlett showed [Qd Kc] and won ($2.99) with two pair, Kings and Queens", Winner{"lukebartlett", 2.99}},
+		{
+			"Single 'collected' winner",
+			"Seat 2: kv_def (small blind) collected ($0.35)",
+			[]Winner{{PlayerName: "kv_def", Amount: 0.35}},
+		},
+		{
+			"Single 'won' winner",
+			"Seat 4: lukebartlett showed [Qd Kc] and won ($2.99) with two pair, Kings and Queens",
+			[]Winner{{PlayerName: "lukebartlett", Amount: 2.99}},
+		},
+		{
+			"Run It Twice - Double winner summary, same player",
+			"Seat 3: KavarzE (big blind) showed [As Jc] and won ($6.70) with two pair, Jacks and Sixes, and won ($6.70) with a pair of Jacks",
+			[]Winner{
+				{PlayerName: "KavarzE", Amount: 6.70},
+				{PlayerName: "KavarzE", Amount: 6.70},
+			},
+		},
+		{
+			"Run It Twice - won and lost",
+			"Seat 1: Zutuzutu_90 (button) showed [Tc 9c] and lost with a pair of Tens, and won ($2.37) with a straight, Six to Ten",
+			[]Winner{
+				{PlayerName: "Zutuzutu_90", Amount: 2.37},
+			},
+		},
+		{
+			"Run It Twice - Double winner, different amounts",
+			"Seat 2: KavarzE (small blind) showed [9s Ks] and won ($4.82) with a pair of Kings, and won ($2.41) with a straight, Six to Ten",
+			[]Winner{
+				{PlayerName: "KavarzE", Amount: 4.82},
+				{PlayerName: "KavarzE", Amount: 2.41},
+			},
+		},
 	}
 
 	for _, tt := range cases {
-		got, err := winnerFromLine([]byte(tt.test))
-		if err != nil {
-			t.Fatalf("got an error but got: %v", err)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := winnerFromLine([]byte(tt.line))
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 
-		if got.PlayerName != tt.want.PlayerName {
-			t.Errorf("test case: '%v':\n wanted %v as winning player but got %v ", tt.test, tt.want.PlayerName, got.PlayerName)
-		}
+			if len(got) != len(tt.want) {
+				t.Fatalf("winner count mismatch:\n got:  %d winners\n want: %d winners\n line: %s",
+					len(got), len(tt.want), tt.line)
+			}
 
-		if got.Amount != tt.want.Amount {
-			t.Errorf("test case: '%v':\n wanted %v as winning amount but got %v ", tt.test, tt.want.Amount, got.Amount)
-		}
+			for i := range got {
+				if got[i].PlayerName != tt.want[i].PlayerName {
+					t.Errorf("winner[%d] name mismatch: got %q, want %q",
+						i, got[i].PlayerName, tt.want[i].PlayerName)
+				}
+				if got[i].Amount != tt.want[i].Amount {
+					t.Errorf("winner[%d] amount mismatch: got %.2f, want %.2f",
+						i, got[i].Amount, tt.want[i].Amount)
+				}
+			}
+		})
 	}
-
 }
 
 func TestExtractButtonSeatFromText(t *testing.T) {
@@ -1304,3 +1344,53 @@ Seat 3: RoMike2 (big blind) folded before Flop
 Seat 4: hiroakin folded before Flop (didn't bet)
 Seat 5: ThxWasOby3 showed [Ah Qd] and lost with high card Ace, and won ($5.02) with a flush, Ace high
 Seat 6: VLSALT folded before Flop (didn't bet)`
+
+const runItTwicePlayerWonBothBoards string = `PokerStars Zoom Hand #254449744546:  Hold'em No Limit ($0.02/$0.05) - 2025/01/19 16:36:38 WET [2025/01/19 11:36:38 ET]
+Table 'Donati' 6-max Seat #1 is the button
+Seat 1: AsmAngAmAngo ($6.95 in chips) 
+Seat 2: loto_insane ($5 in chips) 
+Seat 3: KavarzE ($7.11 in chips) 
+Seat 4: Braghinn ($5.72 in chips) 
+Seat 5: R.S.P747 ($5.51 in chips) 
+Seat 6: Gatzin ($6.88 in chips) 
+loto_insane: posts small blind $0.02
+KavarzE: posts big blind $0.05
+*** HOLE CARDS ***
+Dealt to KavarzE [As Jc]
+Braghinn: raises $0.06 to $0.11
+R.S.P747: folds 
+Gatzin: calls $0.11
+AsmAngAmAngo: folds 
+loto_insane: calls $0.09
+KavarzE: raises $0.89 to $1
+Braghinn: folds 
+Gatzin: calls $0.89
+loto_insane: folds 
+*** FLOP *** [Js 7s 8c]
+KavarzE: bets $1.60
+Gatzin: calls $1.60
+*** TURN *** [Js 7s 8c] [6h]
+KavarzE: bets $4.51 and is all-in
+Gatzin: calls $4.28 and is all-in
+Uncalled bet ($0.23) returned to KavarzE
+*** FIRST RIVER *** [Js 7s 8c 6h] [6d]
+*** SECOND RIVER *** [Js 7s 8c 6h] [Ks]
+*** FIRST SHOW DOWN ***
+KavarzE: shows [As Jc] (two pair, Jacks and Sixes)
+Gatzin: shows [Qh Jh] (two pair, Jacks and Sixes - lower kicker)
+KavarzE collected $6.70 from pot
+*** SECOND SHOW DOWN ***
+KavarzE: shows [As Jc] (a pair of Jacks)
+Gatzin: shows [Qh Jh] (a pair of Jacks - lower kicker)
+KavarzE collected $6.70 from pot
+*** SUMMARY ***
+Total pot $13.98 | Rake $0.58 
+Hand was run twice
+FIRST Board [Js 7s 8c 6h 6d]
+SECOND Board [Js 7s 8c 6h Ks]
+Seat 1: AsmAngAmAngo (button) folded before Flop (didn't bet)
+Seat 2: loto_insane (small blind) folded before Flop
+Seat 3: KavarzE (big blind) showed [As Jc] and won ($6.70) with two pair, Jacks and Sixes, and won ($6.70) with a pair of Jacks
+Seat 4: Braghinn folded before Flop
+Seat 5: R.S.P747 folded before Flop (didn't bet)
+Seat 6: Gatzin showed [Qh Jh] and lost with two pair, Jacks and Sixes, and lost with a pair of Jacks`

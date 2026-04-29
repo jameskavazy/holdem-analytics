@@ -122,7 +122,7 @@ type CommunityCards struct {
 	River Card
 }
 
-// Winner describes a user who won the hand and their profit
+// Winner describes a user who won the hand and how much the collected from the pot
 type Winner struct {
 	PlayerName string
 	Amount     float64

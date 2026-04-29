@@ -210,10 +210,7 @@ func scanHandLines(handText []byte) ([]Player, []Action, []Winner, error) {
 			return nil, nil, nil, winnerErr
 		}
 
-		if winner.PlayerName != "" {
-			winners = append(winners, winner)
-		}
-
+		winners = append(winners, winner...)
 	}
 
 	playersSlice := convertToSlice(playersMap)
@@ -457,8 +454,8 @@ func heroHandFromText(line []byte) (Player, bool, error) {
 		nil
 }
 
-func winnerFromLine(line []byte) (Winner, error) {
-
+func winnerFromLine(line []byte) ([]Winner, error) {
+	var winners []Winner
 	triggers := [][]byte{[]byte("collected ("), []byte(" won (")}
 
 	for _, t := range triggers {
@@ -466,14 +463,38 @@ func winnerFromLine(line []byte) (Winner, error) {
 			continue
 		}
 
+		contentBeforeTrigger := substringBetween(line, []byte(": "), t)
+
+		// Multiple Winners branch
+		if c := bytes.Count(line, t); c > 1 {
+			first, second, ok := bytes.Cut(line, []byte(","))
+			if !ok {
+				return []Winner{}, fmt.Errorf("on no %w", ErrPlayerInfo)
+			}
+			fw, fwErr := winnerFromLine(first)
+			if fwErr != nil {
+				return []Winner{}, fwErr
+			}
+			winners = append(winners, fw...)
+
+			// second is the tail after the comma, missing the player prefix — reconstruct
+			// line by prepending the player name extracted from the first clause
+			secondWithPlayerName := bytes.Join([][]byte{contentBeforeTrigger, second}, []byte(" "))
+			sw, swErr := winnerFromLine(secondWithPlayerName)
+			if fwErr != nil {
+				return []Winner{}, swErr
+			}
+
+			winners = append(winners, sw...)
+			return winners, nil
+		}
+
 		amountWithCurrency := substringBetween(line, t, []byte(")"))
 		amount, amountErr := extractAmount(amountWithCurrency)
 
 		if amountErr != nil {
-			return Winner{}, amountErr
+			return []Winner{}, amountErr
 		}
-
-		contentBeforeTrigger := substringBetween(line, []byte(": "), t)
 
 		before, _, ok := bytes.Cut(contentBeforeTrigger, []byte(" "))
 		var playerName []byte
@@ -483,12 +504,12 @@ func winnerFromLine(line []byte) (Winner, error) {
 			playerName = before
 		}
 
-		return Winner{
+		winners = append(winners, Winner{
 			PlayerName: string(playerName),
 			Amount:     amount,
-		}, nil
+		})
 	}
-	return Winner{}, nil
+	return winners, nil
 }
 
 func seatIntFromText(line []byte) (int64, error) {

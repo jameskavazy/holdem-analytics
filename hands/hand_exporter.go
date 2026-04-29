@@ -149,6 +149,16 @@ func collectResults(handsChannel <-chan handImport) ExportResult {
 
 	for h := range handsChannel {
 
+		// // body := new(bytes.Buffer)
+		// b := strings.Builder{}
+		// jsonErr := json.NewEncoder(&b).Encode(h.hand)
+
+		// if jsonErr != nil {
+		// 	log.Println(jsonErr.Error())
+		// }
+
+		// log.Printf("%#v\n\n", b.String())
+
 		if _, ok := counter[h.filePath]; !ok {
 			counter[h.filePath] = &fileCounter{}
 		}
