@@ -497,7 +497,8 @@ func winnerFromLine(line []byte) ([]Winner, error) {
 			// line by prepending the player name extracted from the first clause
 			secondWithPlayerName := bytes.Join([][]byte{contentBeforeTrigger, second}, []byte(" "))
 			sw, swErr := winnerFromLine(secondWithPlayerName)
-			if fwErr != nil {
+			
+			if swErr != nil {
 				return []Winner{}, swErr
 			}
 
