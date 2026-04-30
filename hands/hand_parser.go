@@ -30,6 +30,14 @@ var (
 	ritFirstBoardSignifier  = []byte("FIRST Board [")
 	ritSecondBoardSignifier = []byte("SECOND Board [")
 	potSizeSignifier        = []byte("Total pot ")
+
+	// Action signifiers
+	sigFolds  = []byte(" folds")
+	sigChecks = []byte(" checks")
+	sigCalls  = []byte(" calls")
+	sigBets   = []byte(" bets")
+	sigRaises = []byte(" raises")
+	sigPosts  = []byte(" posts")
 )
 
 var siteLocation, _ = time.LoadLocation("America/New_York")
@@ -302,14 +310,22 @@ func communityCardsFromText(handText, boardStart []byte) CommunityCards {
 }
 
 func actionTypeFromText(line []byte) (ActionType, bool) {
-	actionTypes := []ActionType{Posts, Folds, Checks, Bets, Calls, Raises}
-
-	for _, t := range actionTypes {
-		if bytes.Contains(line, []byte(t)) {
-			return t, true
-		}
+	switch {
+	case bytes.Contains(line, sigFolds):
+		return ActionFold, true
+	case bytes.Contains(line, sigRaises):
+		return ActionRaise, true
+	case bytes.Contains(line, sigCalls):
+		return ActionCall, true
+	case bytes.Contains(line, sigBets):
+		return ActionBet, true
+	case bytes.Contains(line, sigChecks):
+		return ActionCheck, true
+	case bytes.Contains(line, sigPosts):
+		return ActionPost, true
+	default:
+		return "", false
 	}
-	return "", false
 }
 
 func actionPlayerNameFromText(line []byte) ([]byte, error) {

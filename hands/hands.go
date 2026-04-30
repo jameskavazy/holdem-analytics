@@ -19,12 +19,12 @@ const (
 
 // ActionType - the type of player actions
 const (
-	Folds  ActionType = " folds"
-	Checks ActionType = " checks"
-	Calls  ActionType = " calls"
-	Bets   ActionType = " bets"
-	Raises ActionType = " raises"
-	Posts  ActionType = " posts"
+	ActionFold  ActionType = "fold"
+	ActionCheck ActionType = "check"
+	ActionCall  ActionType = "call"
+	ActionBet   ActionType = "bet"
+	ActionRaise ActionType = "raise"
+	ActionPost  ActionType = "post"
 )
 
 // Currencies constants
@@ -101,7 +101,7 @@ type Action struct {
 // Street is a string representation of the poker street an action was made on
 type Street string
 
-// ActionType is a the type of action made by a player. E.g. folds
+// ActionType is a the type of action made by a player. E.g. fold
 type ActionType string
 
 // Player - a player in the hand
