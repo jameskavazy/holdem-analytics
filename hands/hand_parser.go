@@ -15,18 +15,27 @@ import (
 
 // Delimiter and signifier constants for parsing hand files
 var (
-	handInfoDelimiter       = []byte("\nPokerStars ")
-	newLine                 = []byte("\n")
-	flopSignifier           = []byte("*** FLOP ***")
-	turnSignifier           = []byte("*** TURN ***")
-	riverSignifier          = []byte("*** RIVER ***")
-	summarySignifier        = []byte("*** SUMMARY ***")
-	heroHandPrefix          = []byte("Dealt to")
-	showedSignifier         = []byte("showed [")
-	muckedSignifier         = []byte("mucked [")
-	foldedSignifier         = []byte("folded")
-	collectedSignifier      = []byte("collected (")
-	boardSignifier          = []byte("Board [")
+	handDelimiter = []byte("\nPokerStars ")
+	newLine       = []byte("\n")
+
+	// Streets
+	flopSignifier    = []byte("*** FLOP ***")
+	turnSignifier    = []byte("*** TURN ***")
+	riverSignifier   = []byte("*** RIVER ***")
+	summarySignifier = []byte("*** SUMMARY ***")
+
+	// Actions
+	heroHandPrefix            = []byte("Dealt to")
+	showedSignifier           = []byte("showed [")
+	muckedSignifier           = []byte("mucked [")
+	foldedSignifier           = []byte("folded")
+	collectedSummarySignifier = []byte("collected (")
+	boardSignifier            = []byte("Board [")
+
+	showDownSignfier        = []byte("*** SHOW DOWN ***")
+	firstShowDownSignifier  = []byte("*** FIRST SHOW DOWN ***")
+	secondShowDownSignifier = []byte("*** SECOND SHOW DOWN ***")
+
 	ritFirstBoardSignifier  = []byte("FIRST Board [")
 	ritSecondBoardSignifier = []byte("SECOND Board [")
 	potSizeSignifier        = []byte("Total pot ")
@@ -38,6 +47,15 @@ var (
 	sigBets   = []byte(" bets")
 	sigRaises = []byte(" raises")
 	sigPosts  = []byte(" posts")
+)
+
+type ShowdownState int
+
+const (
+	noShowdown ShowdownState = iota
+	rio
+	ritFirstBoard
+	ritSecondBoard
 )
 
 var siteLocation, _ = time.LoadLocation("America/New_York")
@@ -186,11 +204,21 @@ func scanHandLines(handText []byte) ([]Player, []Action, []Winner, error) {
 	var winners []Winner
 	var street = Preflop
 	var order = 0
+	var showDownState = noShowdown
 
 	lines := bytes.SplitSeq(handText, newLine)
 	for line := range lines {
 		if len(line) == 0 {
 			continue
+		}
+
+		switch {
+		case bytes.Contains(line, showDownSignfier):
+			showDownState = rio
+		case bytes.Contains(line, firstShowDownSignifier):
+			showDownState = ritFirstBoard
+		case bytes.Contains(line, secondShowDownSignifier):
+			showDownState = ritSecondBoard
 		}
 
 		actionResult, actionFound, actionErr := parseActionLine(line, &street, &order)
@@ -213,12 +241,12 @@ func scanHandLines(handText []byte) ([]Player, []Action, []Winner, error) {
 			updateOrAddPlayer(playersMap, player)
 		}
 
-		winner, winnerErr := winnerFromLine(line)
+		w, winnerErr := extractWinners(line, showDownState, street)
 		if winnerErr != nil {
 			return nil, nil, nil, winnerErr
 		}
 
-		winners = append(winners, winner...)
+		winners = append(winners, w...)
 	}
 
 	playersSlice := convertToSlice(playersMap)
@@ -396,7 +424,7 @@ func parsePlayer(line []byte) (Player, bool, error) {
 		return playerInfoFromText(line, muckedSignifier)
 	}
 
-	if bytes.Contains(line, foldedSignifier) || bytes.Contains(line, collectedSignifier) {
+	if bytes.Contains(line, foldedSignifier) || bytes.Contains(line, collectedSummarySignifier) {
 		return playerInfoFromText(line, nil)
 	}
 
@@ -470,63 +498,69 @@ func heroHandFromText(line []byte) (Player, bool, error) {
 		nil
 }
 
-func winnerFromLine(line []byte) ([]Winner, error) {
-	var winners []Winner
-	triggers := [][]byte{[]byte("collected ("), []byte(" won (")}
-
-	for _, t := range triggers {
-		if !bytes.Contains(line, t) {
-			continue
-		}
-
-		contentBeforeTrigger := substringBetween(line, []byte(": "), t)
-
-		// Multiple Winners branch
-		if c := bytes.Count(line, t); c > 1 {
-			first, second, ok := bytes.Cut(line, []byte(","))
-			if !ok {
-				return []Winner{}, fmt.Errorf("on no %w", ErrPlayerInfo)
-			}
-			fw, fwErr := winnerFromLine(first)
-			if fwErr != nil {
-				return []Winner{}, fwErr
-			}
-			winners = append(winners, fw...)
-
-			// second is the tail after the comma, missing the player prefix — reconstruct
-			// line by prepending the player name extracted from the first clause
-			secondWithPlayerName := bytes.Join([][]byte{contentBeforeTrigger, second}, []byte(" "))
-			sw, swErr := winnerFromLine(secondWithPlayerName)
-			
-			if swErr != nil {
-				return []Winner{}, swErr
-			}
-
-			winners = append(winners, sw...)
-			return winners, nil
-		}
-
-		amountWithCurrency := substringBetween(line, t, []byte(")"))
-		amount, amountErr := extractAmount(amountWithCurrency)
-
-		if amountErr != nil {
-			return []Winner{}, amountErr
-		}
-
-		before, _, ok := bytes.Cut(contentBeforeTrigger, []byte(" "))
-		var playerName []byte
-		if !ok {
-			playerName = contentBeforeTrigger
-		} else {
-			playerName = before
-		}
-
-		winners = append(winners, Winner{
-			PlayerName: string(playerName),
-			Amount:     amount,
-		})
+func extractWinners(line []byte, showdownState ShowdownState, street Street) ([]Winner, error) {
+	switch showdownState {
+	case noShowdown:
+		return noShowdownWinner(line, street)
+	case rio, ritFirstBoard:
+		return winnerFromLine(line, 1)
+	case ritSecondBoard:
+		return winnerFromLine(line, 2)
+	default:
+		return []Winner{}, fmt.Errorf("extractWinners: unhandled showdown state %d", showdownState)
 	}
-	return winners, nil
+}
+
+func noShowdownWinner(line []byte, street Street) ([]Winner, error) {
+	if !bytes.Contains(line, collectedSummarySignifier) {
+		return []Winner{}, nil
+	}
+
+	amount, amountErr := extractAmount(substringBetween(line, collectedSummarySignifier, []byte(")")))
+	if amountErr != nil {
+		return []Winner{}, amountErr
+	}
+
+	playerName := playerNameFromSummaryLine(line, collectedSummarySignifier)
+
+	boardNum := 0
+	if street != Preflop {
+		boardNum = 1
+	}
+
+	return []Winner{{
+		PlayerName: string(playerName),
+		Amount:     amount,
+		Board:      boardNum,
+	}}, nil
+}
+
+func winnerFromLine(line []byte, boardNum int) ([]Winner, error) {
+	if !bytes.Contains(line, []byte(" collected ")) || !bytes.Contains(line, []byte(" from pot")) {
+		return []Winner{}, nil
+	}
+
+	amount, amountErr := extractAmount(substringBetween(line, []byte(" collected "), []byte(" from pot")))
+	if amountErr != nil {
+		return []Winner{}, amountErr
+	}
+
+	name, _, _ := bytes.Cut(line, []byte(" "))
+
+	return []Winner{{
+		PlayerName: string(name),
+		Amount:     amount,
+		Board:      boardNum,
+	}}, nil
+}
+
+func playerNameFromSummaryLine(line, trigger []byte) []byte {
+	contentBeforeTrigger := substringBetween(line, []byte(": "), trigger)
+	before, _, ok := bytes.Cut(contentBeforeTrigger, []byte(" "))
+	if !ok {
+		return contentBeforeTrigger
+	}
+	return before
 }
 
 func seatIntFromText(line []byte) (int64, error) {
@@ -546,7 +580,7 @@ func seatIntFromText(line []byte) (int64, error) {
 
 func parseDateTime(timeString []byte) time.Time {
 	siteTime, _ := time.ParseInLocation(time.DateTime, string(timeString), siteLocation)
-	return siteTime.Local()
+	return siteTime.UTC()
 }
 
 // dateTimeFromText extracts the relevant time from the hand information
@@ -614,7 +648,7 @@ func substringBetween(text, start, end []byte) []byte {
 }
 
 func splitByHands() func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-	delimiter := handInfoDelimiter
+	delimiter := handDelimiter
 	delimLen := len(delimiter)
 
 	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {

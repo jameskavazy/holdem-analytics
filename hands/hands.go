@@ -126,6 +126,7 @@ type CommunityCards struct {
 type Winner struct {
 	PlayerName string
 	Amount     float64
+	Board      int
 }
 
 func (t ActionType) String() string {
